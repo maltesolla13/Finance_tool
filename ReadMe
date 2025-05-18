@@ -1,0 +1,114 @@
+Deine Idee in Kurzform:
+Du möchtest eine App bauen, mit der du:
+
+Screenshots/Fotos von Einkaufslisten hochlädst
+
+Diese in Text umwandelst (per OCR)
+
+Einzelne Posten kategorisieren kannst (z. B. Essen, Fixkosten usw.)
+
+Angaben wie "allein/zu zweit/zu dritt bezahlt" festhältst
+
+Deine Ausgaben trackst & später analysierst
+
+🧱 Bausteine der Anwendung
+1. Bildverarbeitung & Texterkennung (OCR)
+Was du brauchst: OCR = Optical Character Recognition
+
+Tools: Tesseract OCR (Open Source)
+
+Bibliothek: pytesseract in Python
+
+Was es tut: Erkennt Text in deinen Screenshots oder Fotos
+
+2. Textanalyse & Kategorisierung
+Du kannst Regeln schreiben, um Begriffe wie "Pizza", "Miete", "Netflix" automatisch Kategorien zuzuweisen.
+
+Später evtl. Machine Learning, um das „intelligent“ zu machen.
+
+3. Datenspeicherung
+Am Anfang reicht eine CSV-Datei oder SQLite-Datenbank.
+
+Später kannst du auf eine richtige Datenbank wie PostgreSQL oder Firebase umsteigen.
+
+4. Benutzeroberfläche (Frontend)
+Einfach: Command Line Interface (CLI) in Python
+
+Besser: Web-App mit Flask (Python) oder React (JavaScript)
+
+Oder: Mobile App mit Flutter oder React Native
+
+5. Logik für Zahlungsteilung
+Du erfasst beim Posten, ob du „allein“, „zu zweit“ oder „zu dritt“ bezahlt hast
+
+Daraus kannst du später Kosten aufteilen und vergleichen
+
+6. Auswertungen & Visualisierung
+Bibliotheken wie:
+
+matplotlib oder plotly (für Diagramme)
+
+pandas (für Datenanalyse)
+
+Du kannst zeigen:
+
+Wie viel du im Monat für Essen ausgibst
+
+Wer wann wie viel gezahlt hat usw.
+
+🧠 Was du dafür lernen solltest
+🔹 Mindestkenntnisse in Python:
+Dateien lesen/schreiben
+
+mit Listen/Dictionaries arbeiten
+
+einfache Funktionen schreiben
+
+🔹 Umgang mit OCR und Datenverarbeitung
+pytesseract (OCR)
+
+re (Reguläre Ausdrücke, um Preise/Artikel zu erkennen)
+
+🔹 Grundlagen in Datenbanken
+SQLite oder CSV
+
+SQL-Basics
+
+🔹 (Optional) Web-Frontend mit:
+Flask + HTML/CSS
+
+React (später, falls du Web willst)
+
+🔧 Projektvorschlag in Phasen
+Phase	Ziel	Tools
+1	Screenshot → Text	Python, pytesseract, Pillow
+2	Text analysieren & in CSV speichern	pandas, Regex
+3	Kategorien & Zahlart auswählen	einfache CLI
+4	Analyse/Statistik anzeigen	matplotlib, pandas
+5	Web-Interface (optional)	Flask, HTML/CSS
+
+🚀 Beispiel-Ablauf der App
+Du lädst einen Screenshot hoch.
+
+Die App extrahiert:
+2x Pizza 8.99€, Wasser 0.89€, Netflix 12.99€
+
+Du ordnest zu:
+
+Pizza → Essen
+
+Wasser → Essen
+
+Netflix → Fixkosten
+
+Du gibst an: "zu zweit bezahlt"
+
+App speichert das als Eintrag
+
+Später zeigt dir die App z. B.:
+
+Monatliche Gesamtausgaben
+
+Top-Kategorien
+
+Wer wie viel gezahlt hat
