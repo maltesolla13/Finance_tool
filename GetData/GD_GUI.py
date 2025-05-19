@@ -1,9 +1,13 @@
+import csv
+import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from decimal import Decimal
 from typing import Type
+from datetime import datetime
 from dataclasses import fields
-from GetData.GD_Schema import SchemaSparplan, SchemaFixkosten, SchemaKaufitem
+from GetData.GD_Schema import SchemaSparplan, SchemaFixkosten, \
+    SchemaKaufitem, SchemaEinkommen
 
 
 # --- Main GUI Function ---
@@ -17,26 +21,25 @@ def gui_main():
 
     # Tab 1: Kaufitem
     frame_kauf = ttk.Frame(notebook)
-    generat_formular(
-        frame_kauf, SchemaKaufitem, lambda x: print("Kaufitem:", x)
-        )
+    generat_formular(frame_kauf, SchemaKaufitem, safe_csv)
     notebook.add(frame_kauf, text="Kaufitem")
 
-    # Tab 2 Fixkosten
+    # Tab 2: Fixkosten
     frame_fix = ttk.Frame(notebook)
-    generat_formular(
-        frame_fix, SchemaFixkosten, lambda x: print("Fixkosten", x)
-        )
+    generat_formular(frame_fix, SchemaFixkosten, safe_csv)
     notebook.add(frame_fix, text="Fixkosten")
 
-    # Tab 3 Sparplan
+    # Tab 3: Sparplan
     frame_spar = ttk.Frame(notebook)
-    generat_formular(
-        frame_spar, SchemaSparplan, lambda x: print("Sparplan", x)
-        )
+    generat_formular(frame_spar, SchemaSparplan, safe_csv)
     notebook.add(frame_spar, text="Sparplan")
 
-    # Tab 4: Bild hochladen
+    # Tab 4: Einkommen
+    frame_einkommen = ttk.Frame(notebook)
+    generat_formular(frame_einkommen, SchemaEinkommen, safe_csv)
+    notebook.add(frame_einkommen, text="Einkommen")
+
+    # Tab 5: Bild hochladen
     frame_bild = ttk.Frame(notebook)
     ttk.Label(frame_bild, text="Bild auswählen für OCR").pack(pady=10)
     ttk.Button(frame_bild, text="Bild hochladen", command=bild_upload).pack()
@@ -65,6 +68,10 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
                     value[field.name] = val
             instance = schema_class(**value)
             speichern_callback(instance)
+
+            for entry in entrance.values():
+                entry.delete(0, tk.END)
+
         except Exception as e:
             messagebox.showerror("Fehler", str(e))
 
@@ -87,3 +94,29 @@ def bild_upload():
     if filepath:
         messagebox.showinfo("Bild hochgeladen", f"Pfad: {filepath}")
         print(f"Bildpfad: {filepath}")
+
+
+# --- CSV Safe ---
+FILES = {
+    SchemaKaufitem: "safe_kaufitem.csv",
+    SchemaFixkosten: "safe_fixkosten.csv",
+    SchemaSparplan: "safe_sparplan.csv",
+    SchemaEinkommen: "safe_einkommen.csv",
+}
+
+
+def safe_csv(instance):
+    filepath = FILES[type(instance)]
+    fieldname = [f.name for f in fields(instance)]
+    file_exists = os.path.isfile(filepath)
+
+    with open(filepath, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldname)
+        if not file_exists:
+            writer.writeheader()
+        # Datum in ISO-Form umwandeln
+        daten_dict = {
+            k: (v.isoformat() if isinstance(v, datetime) else str(v))
+            for k, v in instance.__dict__.items()
+        }
+        writer.writerow(daten_dict)
