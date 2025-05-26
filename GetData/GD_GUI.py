@@ -1,11 +1,12 @@
 import csv
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, StringVar
 from decimal import Decimal
 from typing import Type
 from datetime import datetime
 from dataclasses import fields
+from dateutil.relativedelta import relativedelta
 from GetData.GD_Schema import SchemaSparplan, SchemaFixkosten, \
     SchemaKaufitem, SchemaEinkommen
 
@@ -50,12 +51,36 @@ def gui_main():
 
 # --- Formualr generator ---
 def generat_formular(parent, schema_class: Type, speichern_callback):
+    names = load_unique_names(schema_class)
+    selected = StringVar()
+    combo = ttk.Combobox(
+        parent, textvariable=selected, values=names, state="readonly"
+        )
+    combo.grid(row=0, column=0, columnspan=2, sticky="ew", pady=5)
+    combo.bind('<<ComboxSelected>>', lambda _: load_latest_entry(
+        schema_class, selected.get(), entrance)
+        )
+
     entrance = {}
-    for i, field in enumerate(fields(schema_class)):
+    for i, field in enumerate(fields(schema_class), start=1):
         ttk.Label(parent, text=field.name).grid(row=i, column=0, sticky="w")
         entry = ttk.Entry(parent)
         entry.grid(row=i, column=1, sticky="ew")
         entrance[field.name] = entry
+
+    monatlich_var = tk.BooleanVar()
+    row_offset = len(field(schema_class))
+    ttk.Checkbutton(
+        parent,
+        text="Monatlich wiederholen",
+        variable=monatlich_var
+    ).grid(row=row_offset, column=0, columnspan=2, sticky="w", pady=(10, 0))
+
+    ttk.Label(parent, text="Tag im Monat").grid(
+        row=row_offset+1, column=0, sticky="w"
+    )
+    day_entry = ttk.Entry(parent)
+    day_entry.grid(row=row_offset+1, column=1, sticky="ew")
 
     def safe():
         try:
@@ -67,6 +92,7 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
                 else:
                     value[field.name] = val
             instance = schema_class(**value)
+            instance.is_update = True
             speichern_callback(instance)
 
             for entry in entrance.values():
@@ -104,6 +130,12 @@ FILES = {
     SchemaEinkommen: "safe_einkommen.csv",
 }
 
+TEMPLATE_FILES = {
+    SchemaFixkosten: "templates_fixkosten.csv",
+    SchemaSparplan:  "templates_sparplan.csv",
+    SchemaEinkommen: "templates_einkommen.csv",
+}
+
 
 def safe_csv(instance):
     filepath = FILES[type(instance)]
@@ -120,3 +152,69 @@ def safe_csv(instance):
             for k, v in instance.__dict__.items()
         }
         writer.writerow(daten_dict)
+
+
+def load_unique_names(schema_class):
+    filepath = FILES[schema_class]
+    if not os.path.exists(filepath):
+        return []
+    names = set()
+    with open(filepath, newline='', encoding='uft-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            names.add(row['name'])
+    return sorted(names)
+
+
+def load_latest_entry(schema_class, name, entrance):
+    filepath = FILES[schema_class]
+    latest = None
+    latest_date = datetime.min
+    with open(filepath, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['name'] != name:
+                continue
+            d = datetime.fromisoformat(row['datum'])
+            if d > latest_date:
+                latest_date = d
+                latest = row
+
+    if latest:
+        for key, entry in entrance.items():
+            entry.delete(0, tk.END)
+            entry.insert(0, latest.get(key, ''))
+
+
+def generate_recurring_entries():
+    today = datetime.today().date()
+    for schema_class, tpl_file in TEMPLATE_FILES.items():
+        if not os.path.isfile(tpl_file):
+            continue
+
+    updated = []
+    with open(tpl_file, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['active'] != 'True':
+                updated.append(row)
+                continue
+
+            next_due = datetime.fromisoformat(row['next_due']).date()
+            while next_due <= today:
+                kwargs = {
+                    'name': row['name'],
+                    'preis': Decimal(row['amount']),
+                    'datum': next_due
+                }
+                inst = schema_class(**kwargs)
+                safe_csv(inst)
+                next_due += relativedelta(months=1)
+
+            row['next_due'] = next_due.isoformat()
+            updated.append(row)
+
+    with open(tpl_file, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=updated[0].keys())
+        writer.writeheader()
+        writer.writerows(updated)
