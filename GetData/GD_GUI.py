@@ -68,22 +68,25 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
         entry.grid(row=i, column=1, sticky="ew")
         entrance[field.name] = entry
 
+    last_row = i
+    cb_row = last_row + 1
     monatlich_var = tk.BooleanVar()
-    row_offset = len(field(schema_class))
     ttk.Checkbutton(
         parent,
         text="Monatlich wiederholen",
         variable=monatlich_var
-    ).grid(row=row_offset, column=0, columnspan=2, sticky="w", pady=(10, 0))
+    ).grid(row=cb_row, column=0, columnspan=2, sticky="w", pady=(10, 0))
 
+    tag_row = cb_row + 1
     ttk.Label(parent, text="Tag im Monat").grid(
-        row=row_offset+1, column=0, sticky="w"
+        row=tag_row, column=0, sticky="w"
     )
     day_entry = ttk.Entry(parent)
-    day_entry.grid(row=row_offset+1, column=1, sticky="ew")
+    day_entry.grid(row=tag_row, column=1, sticky="ew")
 
     def safe():
         try:
+            # build the instance
             value = {}
             for field in fields(schema_class):
                 val = entrance[field.name].get()
@@ -92,24 +95,58 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
                 else:
                     value[field.name] = val
             instance = schema_class(**value)
-            instance.is_update = True
+
+            # save the one-off
             speichern_callback(instance)
 
+            # if recurring, append to template CSV
+            if monatlich_var.get():
+                tpl_file = TEMPLATE_FILES[schema_class]
+                headers = ['name', 'amount', 'next_due', 'active']
+                file_exists = os.path.isfile(tpl_file)
+
+                today = datetime.today().date()
+                day = int(day_entry.get())
+                next_month = today + relativedelta(months=1)
+                try:
+                    next_due = next_month.replace(day=day)
+                except ValueError:
+                    last_day = (next_month + relativedelta(day=31)).day
+                    next_due = next_month.replace(day=last_day)
+
+                # Make sure this block is indented UNDER the 'with'
+                with open(tpl_file, 'a', newline='', encoding='utf-8') as tf:
+                    writer = csv.DictWriter(tf, fieldnames=headers)
+                    if not file_exists:
+                        writer.writeheader()
+                    writer.writerow({
+                        'name': instance.name,
+                        'amount': str(instance.preis),
+                        'next_due': next_due.isoformat(),
+                        'active': 'True'
+                    })
+
+            # clear all fields after saving
             for entry in entrance.values():
                 entry.delete(0, tk.END)
+            day_entry.delete(0, tk.END)
+            monatlich_var.set(False)
 
         except Exception as e:
             messagebox.showerror("Fehler", str(e))
 
+    save_row = tag_row + 1
     ttk.Button(
         parent,
         text="Speichern",
-        command=safe).grid(
-            row=len(fields(schema_class)),
-            column=0,
-            columnspan=2,
-            pady=10
-            )
+        command=safe
+    ).grid(
+        row=save_row,
+        column=0,
+        columnspan=2,
+        pady=10,
+        sticky="ew"
+    )
 
 
 # --- Bildupload ---
@@ -159,7 +196,7 @@ def load_unique_names(schema_class):
     if not os.path.exists(filepath):
         return []
     names = set()
-    with open(filepath, newline='', encoding='uft-8') as f:
+    with open(filepath, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             names.add(row['name'])
@@ -190,31 +227,37 @@ def generate_recurring_entries():
     today = datetime.today().date()
     for schema_class, tpl_file in TEMPLATE_FILES.items():
         if not os.path.isfile(tpl_file):
+            headers = ['name', 'amount', 'next_due', 'active']
+            with open(tpl_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                writer.writeheader()
             continue
 
-    updated = []
-    with open(tpl_file, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row['active'] != 'True':
+        updated = []
+        with open(tpl_file, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get('active', 'False') != 'True':
+                    updated.append(row)
+                    continue
+
+                next_due = datetime.fromisoformat(row['next_due']).date()
+                while next_due <= today:
+                    kwargs = {
+                        'name': row['name'],
+                        'preis': Decimal(row['amount']),
+                        'datum': next_due
+                    }
+                    inst = schema_class(**kwargs)
+                    safe_csv(inst)
+                    next_due += relativedelta(months=1)
+
+                row['next_due'] = next_due.isoformat()
                 updated.append(row)
-                continue
+        if not updated:
+            continue
 
-            next_due = datetime.fromisoformat(row['next_due']).date()
-            while next_due <= today:
-                kwargs = {
-                    'name': row['name'],
-                    'preis': Decimal(row['amount']),
-                    'datum': next_due
-                }
-                inst = schema_class(**kwargs)
-                safe_csv(inst)
-                next_due += relativedelta(months=1)
-
-            row['next_due'] = next_due.isoformat()
-            updated.append(row)
-
-    with open(tpl_file, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=updated[0].keys())
-        writer.writeheader()
-        writer.writerows(updated)
+        with open(tpl_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=updated[0].keys())
+            writer.writeheader()
+            writer.writerows(updated)

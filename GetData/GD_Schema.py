@@ -44,7 +44,8 @@ class SchemaEinkommen:
 class SchemaSparplan:
     name: str
     preis: Decimal
-    isn: str
+    kategorie: str
+    isin: str
     datum: datetime
 
     class Config:
