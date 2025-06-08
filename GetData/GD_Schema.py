@@ -1,6 +1,7 @@
 from decimal import Decimal
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 
 @dataclass
@@ -43,9 +44,11 @@ class SchemaEinkommen:
 @dataclass
 class SchemaSparplan:
     name: str
-    preis: Decimal
-    kategorie: str
     isin: str
+    ticker: str
+    instrument: str
+    kaufpreis: Optional[Decimal] = None
+    anteile: Optional[Decimal] = None
     datum: datetime
 
     class Config:
