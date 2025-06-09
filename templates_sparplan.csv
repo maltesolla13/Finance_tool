@@ -1,3 +1,11 @@
 name,isin,ticker,instrument,datum,preis,anteile,next_due,active
 Mercedes Benz Group AG,DE0007100000,MBG.DE,stock,2025-04-03,25,,2025-07-03,True
 NVIDIA,US67066G1040,NVDA,stock,2025-03-04,30,,2025-07-04,True
+Core DAX EUR (Acc),,EXS1.DE,etf,2025-03-04,30,,2025-03-04,False
+Core MSCI World USD(Acc),,EUNL.DE,etf,2025-03-04,30,,2025-03-04,False
+MSCI Europe SRI EUR (Acc),,IUSK,etf,2025-03-04,30,,2025-03-04,False
+Rheinmetall,,RHM.DE,stock,2025-03-04,30,,2025-03-04,False
+Berkshire Hathaway (B),,BRK-B,stock,2025-03-04,30,,2025-03-04,False
+Apple,,AAPL,stock,2025-03-04,30,,2025-03-04,False
+BioNTech (ADR),,BNTX,stock,2025-03-04,30,,2025-03-04,False
+Ethereum,,ETH-USD,crypto,2025-03-04,30,,2025-03-04,False
