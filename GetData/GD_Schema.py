@@ -45,11 +45,11 @@ class SchemaEinkommen:
 class SchemaSparplan:
     name: str
     isin: str
-    ticker: str
+    ticker: str  # (stock, etf, crypto)
     instrument: str
-    kaufpreis: Optional[Decimal] = None
-    anteile: Optional[Decimal] = None
     datum: datetime
+    preis: Optional[Decimal] = None
+    anteile: Optional[Decimal] = None
 
     class Config:
         extra = 'allow'
