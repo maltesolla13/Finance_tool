@@ -30,6 +30,7 @@ def fetch_low_yfinance_on_date(
 
         tk_obj = yf.Ticker(ticker)
         hist = tk_obj.history(start=start_str, end=end_str, interval=interval)
+        print("hist: ", hist)
 
         if not hist.empty:
             # return the low of that day

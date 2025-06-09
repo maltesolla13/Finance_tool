@@ -1,7 +1,7 @@
 import csv
 import os
 import tkinter as tk
-from typing import get_origin, get_args, Union, Type
+from typing import get_origin, get_args, Union, Type, Optional
 from tkinter import ttk, filedialog, messagebox, StringVar
 from decimal import Decimal
 from datetime import datetime
@@ -113,14 +113,17 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
     def safe():
         """
         Description:
-            Gather form inputs, instantiate the schema, and save entries.
-            If monthly repeat is checked, backfill all past months up to today,
-            recalc shares for Sparplan on each iteration, and write a single
-            template entry for the next_due date.
+            Gather form inputs and save one-off or recurring entries.
+            - If Preis empty & Anteile set → compute
+                Preis = Anteile * low_price(date).
+            - If Anteile empty & Preis set → compute
+                Anteile = Preis / low_price(date).
+            - On monthly repeat: backfill and template as before.
         Input:
-            uses closure vars: entrance, schema_class, monatlich_var, day_entry
+            uses closure vars: inst, monatlich_var, day_entry, entrance,
+            schema_class
         Output:
-            Writes rows into the main CSVs and the template CSV; clears fields.
+            Writes to CSVs via safe_csv(); clears form fields..
         """
         try:
             # 1) build the instance from Entry fields
@@ -143,39 +146,43 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
 
             # 2) for Sparplan: always ensure anteile are calculated if missing
             if isinstance(inst, SchemaSparplan):
-                if inst.anteile in ("", None) and inst.preis:
-                    print("Datum: ", inst.datum)
-                    print("Preis: ", inst.preis)
-                    price = fetch_low_yfinance_on_date(
-                        inst.ticker, inst.datum)
-                    inst.anteile = inst.preis / price
+                kurs = fetch_low_yfinance_on_date(inst.ticker, inst.datum)
+                print("Datum: ", inst.datum)
+                print("Preis: ", inst.preis)
+                print("Kurs: ", kurs)
+                if not inst.preis and inst.anteile:
+                    inst.preis = inst.anteile * kurs
+                elif inst.preis and not inst.anteile:
+                    inst.anteile = inst.preis / kurs
 
             # 3) if monthly-repeat is active for allowed schemas:
-            if monatlich_var.get() and has_monthly:
+            if monatlich_var.get() and isinstance(inst, SchemaSparplan):
                 # determine day of month to repeat on
                 day = int(day_entry.get())
                 start = inst.datum.date()
                 today = datetime.today().date()
+                current = start
 
                 # backfill or catch-up loop
-                current = start
                 while current <= today:
-                    if isinstance(inst, SchemaSparplan):
-                        # recalc shares on each monthly date
-                        print("Datum: ", inst.datum)
-                        print("Preis: ", inst.preis)
-                        price = fetch_low_yfinance_on_date(
-                            inst.ticker, current)
-                        shares = inst.preis / price
-                        new_inst = replace(inst, datum=current, anteile=shares)
-                    else:
-                        new_inst = replace(inst, datum=current)
+                    kurs = fetch_low_yfinance_on_date(inst.ticker, current)
+                    print("Datum: ", inst.datum)
+                    print("Preis: ", inst.preis)
+                    print("Kurs: ", kurs)
+                    price = inst.preis
+                shares = price / kurs
 
-                    safe_csv(new_inst)
-                    # move to next month, same day
-                    # (relativedelta handles overflow)
-                    current += relativedelta(months=1)
-                    current = current.replace(day=day)
+                new_inst = replace(
+                    inst,
+                    datum=current,
+                    preis=price,
+                    anteile=shares
+                )
+                safe_csv(new_inst)
+
+                # advance one month, same day
+                current += relativedelta(months=1)
+                current = current.replace(day=day)
 
                 # write exactly one template entry for the *next* due date
                 next_due = current  # first date > today
@@ -322,46 +329,73 @@ def load_latest_entry(schema_class, name, entrance):
 def generate_recurring_entries():
     """
     Description:
-        On program start, read each TEMPLATE_FILE and generate
-        any due rows into the main CSV, then bump next_due forward.
+        On startup (or whenever called), read the Sparplan template CSV and
+        for each active entry:
+          1. Catch up all missed months by querying the live low price for
+             each due date and writing a row to the main CSV.
+          2. Advance next_due by one month each time until it falls > today.
+          3. Rewrite the template CSV with the updated next_due for each entry.
     Input:
-        None
+        None (uses global TEMPLATE_FILES, safe_csv, fetch_low_yfinance_on_date)
     Output:
-        Mutates both main CSVs and template CSVs; returns None.
+        Appends rows into safe_sparplan.csv and updates templates_sparplan.csv.
     """
     today = datetime.today().date()
-    for schema_cls, tpl in TEMPLATE_FILES.items():
-        # ensure template exists with dynamic headers
-        headers = [f.name for f in fields(schema_cls)] + ["next_due", "active"]
-        if not os.path.isfile(tpl):
-            with open(tpl, 'w', newline='', encoding='utf-8') as f:
-                csv.DictWriter(f, fieldnames=headers).writeheader()
+    tpl = TEMPLATE_FILES[SchemaSparplan]
+    # build header: all dataclass fields + next_due + active
+    headers = [f.name for f in fields(SchemaSparplan)] + ["next_due", "active"]
 
-        updated_rows = []
-        with open(tpl, newline='', encoding='utf-8') as f:
-            for row in csv.DictReader(f):
-                if row.get("active") != "True":
-                    updated_rows.append(row)
-                    continue
-                due = datetime.fromisoformat(row["next_due"]).date()
-                # emit one row per missed month
-                while due <= today:
-                    data = {
-                        **{fld: row[fld] for fld in row
-                           if fld not in ("next_due", "active")},
-                        "datum": due.isoformat()
-                    }
-                    inst = schema_cls(**data)
-                    safe_csv(inst)
-                    due += relativedelta(months=1)
-                # schedule next
-                row["next_due"] = due.isoformat()
-                updated_rows.append(row)
-
-        # rewrite template file
+    # ensure the template file exists
+    if not os.path.isfile(tpl):
         with open(tpl, 'w', newline='', encoding='utf-8') as f:
             csv.DictWriter(f, fieldnames=headers).writeheader()
-            csv.DictWriter(f, fieldnames=headers).writerows(updated_rows)
+
+    updated_rows = []
+    # read existing template entries
+    with open(tpl, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # keep inactive entries untouched
+            if row.get("active") != "True":
+                updated_rows.append(row)
+                continue
+
+            # 1) build a base SchemaSparplan instance by converting types
+            data = {}
+            for fld in fields(SchemaSparplan):
+                raw = row.get(fld.name)
+                if raw is None:
+                    continue
+                if fld.name == "datum":
+                    data[fld.name] = datetime.fromisoformat(raw)
+                elif fld.type in (Decimal, Optional[Decimal]):
+                    data[fld.name] = Decimal(raw) if raw else None
+                else:
+                    data[fld.name] = raw
+            base_inst = SchemaSparplan(**data)
+
+            # 2) catch-up loop for all months ≤ today
+            due = datetime.fromisoformat(row["next_due"]).date()
+            while due <= today:
+                # always re-fetch live price and recalc shares
+                kurs = fetch_low_yfinance_on_date(base_inst.ticker, due)
+                shares = base_inst.preis / kurs
+
+                # use dataclasses.replace to only change datum & anteile
+                inst = replace(base_inst, datum=due, anteile=shares)
+                safe_csv(inst)
+
+                due += relativedelta(months=1)
+
+            # 3) bump next_due forward to the first date > today
+            row["next_due"] = due.isoformat()
+            updated_rows.append(row)
+
+    # rewrite the template CSV with updated next_due values
+    with open(tpl, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(updated_rows)
 
 
 # --- file mappings ---
