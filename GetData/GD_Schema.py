@@ -53,3 +53,12 @@ class SchemaSparplan:
 
     class Config:
         extra = 'allow'
+
+
+@dataclass
+class SchemaUmbuchung:
+    name: str
+    betrag: Decimal
+    sender: str
+    empfänger: str
+    datum: datetime

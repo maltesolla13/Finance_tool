@@ -9,7 +9,7 @@ from datetime import datetime
 from dataclasses import fields, replace
 from dateutil.relativedelta import relativedelta
 from GetData.GD_Schema import SchemaSparplan, SchemaFixkosten, \
-    SchemaKaufitem, SchemaEinkommen
+    SchemaKaufitem, SchemaEinkommen, SchemaUmbuchung
 from Depot.D_api import fetch_low_yfinance_on_date
 
 
@@ -48,7 +48,12 @@ def gui_main():
     generat_formular(frame_einkommen, SchemaEinkommen, safe_csv)
     notebook.add(frame_einkommen, text="Einkommen")
 
-    # Tab 5: Upload receipt image
+    # Tab 5: Umbuchung (with monthly repeat UI)
+    frame_umbuchung = ttk.Frame(notebook)
+    generat_formular(frame_umbuchung, SchemaUmbuchung, safe_csv)
+    notebook.add(frame_umbuchung, text="Umbuchung")
+
+    # Tab 6: Upload receipt image
     frame_bild = ttk.Frame(notebook)
     ttk.Label(frame_bild, text="Select image for OCR").pack(pady=10)
     ttk.Button(frame_bild, text="Upload image", command=bild_upload).pack()
@@ -70,12 +75,17 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
 
     # determine if this schema supports monthly-repeat
     has_monthly = schema_class in (
-        SchemaFixkosten, SchemaSparplan, SchemaEinkommen
+        SchemaFixkosten, SchemaSparplan, SchemaEinkommen, SchemaUmbuchung
         )
 
     # ----- NAME field: Combobox for three schemas, else Entry -----
     ttk.Label(parent, text="name").grid(row=row_idx, column=0, sticky="w")
-    if schema_class in (SchemaFixkosten, SchemaSparplan, SchemaEinkommen):
+    if schema_class in (
+        SchemaFixkosten,
+        SchemaSparplan,
+        SchemaEinkommen,
+        SchemaUmbuchung
+    ):
         name_var = StringVar()
         names = load_template_names(schema_class)
         name_widget = ttk.Combobox(
@@ -510,10 +520,12 @@ FILES = {
     SchemaFixkosten: "safe_fixkosten.csv",
     SchemaSparplan: "safe_sparplan.csv",
     SchemaEinkommen: "safe_einkommen.csv",
+    SchemaUmbuchung: "safe_umbuchungen.csv",
 }
 
 TEMPLATE_FILES = {
     SchemaFixkosten: "templates_fixkosten.csv",
     SchemaSparplan:  "templates_sparplan.csv",
     SchemaEinkommen: "templates_einkommen.csv",
+    SchemaUmbuchung: "templates_umbuchungen.csv",
 }
