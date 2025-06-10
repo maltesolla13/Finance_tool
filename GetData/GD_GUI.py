@@ -4,6 +4,7 @@ import tkinter as tk
 from typing import get_origin, get_args, Union, Type, Optional, List, Dict
 from tkinter import ttk, filedialog, messagebox, StringVar
 from decimal import Decimal
+from copy import deepcopy
 from datetime import datetime
 from dataclasses import fields, replace
 from dateutil.relativedelta import relativedelta
@@ -157,14 +158,22 @@ def generat_formular(parent, schema_class: Type, speichern_callback):
 
             # 2) compute missing preis/anteile for Sparplan
             if isinstance(inst, SchemaSparplan):
+                # Kurs holen
                 kurs = fetch_low_yfinance_on_date(inst.ticker, inst.datum)
-                if not inst.preis and inst.anteile:
-                    inst.preis = inst.anteile * kurs
-                elif inst.preis and not inst.anteile:
-                    inst.anteile = inst.preis / kurs
 
-            # 3) save main CSV
-            speichern_callback(inst)
+                # eine Kopie anlegen, in der wir vollständig auffüllen
+                save_inst = deepcopy(inst)
+                if not save_inst.preis and save_inst.anteile:
+                    save_inst.preis = save_inst.anteile * kurs
+                elif save_inst.preis and not save_inst.anteile:
+                    save_inst.anteile = save_inst.preis / kurs
+
+                # damit CSV speichern
+                speichern_callback(save_inst)
+
+            else:
+                # 3) save main CSV
+                speichern_callback(inst)
 
             # 4) handle template upsert (single or recurring)
             if monatlich_var.get() and has_monthly:
@@ -291,7 +300,12 @@ def load_latest_entry(schema_class, name, entrance):
     if latest:
         for k, widget in entrance.items():
             widget.delete(0, tk.END)
-            widget.insert(0, latest.get(k, ""))
+            if k == "datum":
+                # parse ISO und formatiere neu
+                dt = datetime.fromisoformat(latest[k])
+                widget.insert(0, dt.strftime("%d.%m.%Y"))
+            else:
+                widget.insert(0, latest.get(k, ""))
 
 
 def generate_recurring_entries():
@@ -417,7 +431,11 @@ def populate_from_template(
                 if fld == "name":
                     continue
                 widget.delete(0, tk.END)
-                widget.insert(0, row.get(fld, ""))
+                if fld == "datum" and row.get(fld):
+                    dt = datetime.fromisoformat(row[fld])
+                    widget.insert(0, dt.strftime("%d.%m.%Y"))
+                else:
+                    widget.insert(0, row.get(fld, ""))
             # set monthly checkbox and day
             active = row.get("active", "False") == "True"
             monatlich_var.set(active)
