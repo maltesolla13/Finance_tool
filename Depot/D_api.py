@@ -18,7 +18,7 @@ def fetch_low_yfinance_on_date(
         date     -- the starting date (datetime)
         interval -- data interval for yfinance (default "1d")
     Output:
-        Decimal low price for the first date with data,
+        Decimal high  price for the first date with data,
         or raises ValueError if none found within 7 days.
     """
     current_date = date
@@ -33,16 +33,16 @@ def fetch_low_yfinance_on_date(
         print("hist: ", hist)
 
         if not hist.empty:
-            # return the low of that day
-            low = hist["Low"].iloc[0]
-            return Decimal(str(low))
+            # return the high  of that day
+            high = hist["High"].iloc[0]
+            return Decimal(str(high))
 
         # no data for this date → try next day
         current_date += timedelta(days=1)
 
     # after 7 attempts still nothing → error
     raise ValueError(
-        f"No low price for {ticker} found between "
+        f"No high  price for {ticker} found between "
         f"{date.strftime('%Y-%m-%d')} and "
         f"{(date + timedelta(days=6)).strftime('%Y-%m-%d')}."
     )
