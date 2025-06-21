@@ -262,7 +262,7 @@ def safe_csv(instance):
         if not file_exists:
             writer.writeheader()
         row = {
-            k: (v.isoformat() if isinstance(v, datetime) else str(v))
+            k: (v.date().isoformat() if isinstance(v, datetime) else str(v))
             for k, v in instance.__dict__.items()
         }
         writer.writerow(row)
