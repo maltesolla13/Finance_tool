@@ -1,531 +1,203 @@
-import csv
-import os
 import tkinter as tk
-from typing import get_origin, get_args, Union, Type, Optional, List, Dict
-from tkinter import ttk, filedialog, messagebox, StringVar
+from tkinter import ttk, filedialog, messagebox
 from decimal import Decimal
-from copy import deepcopy
 from datetime import datetime
-from dataclasses import fields, replace
-from dateutil.relativedelta import relativedelta
-from GetData.GD_Schema import SchemaSparplan, SchemaFixkosten, \
-    SchemaKaufitem, SchemaEinkommen, SchemaUmbuchung
-from Depot.D_api import fetch_low_yfinance_on_date
 
 
-def gui_main():
-    """
-    Description:
-        Launch the main Tkinter window with tabs for each schema.
-    Input:
-        None
-    Output:
-        Starts the Tk mainloop; returns None.
-    """
-    root = tk.Tk()
-    root.title("Finanz_Tracker")
+class FinazntTrackerGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Finant Tracker")
 
-    notebook = ttk.Notebook(root)
-    notebook.pack(fill='both', expand=True)
+        notebook = ttk.Notebook(root)
+        notebook.pack(fill="both", expand=True)
 
-    # Tab 1: Kaufitem (no monthly repeat UI)
-    frame_kauf = ttk.Frame(notebook)
-    generat_formular(frame_kauf, SchemaKaufitem, safe_csv)
-    notebook.add(frame_kauf, text="Kaufitem")
+        # Einkauf Tab
+        frame_einkauf = ttk.Frame(notebook)
+        self.build_einkauf_form(frame_einkauf)
+        notebook.add(frame_einkauf, text="Einkauf")
 
-    # Tab 2: Fixkosten (with monthly repeat UI)
-    frame_fix = ttk.Frame(notebook)
-    generat_formular(frame_fix, SchemaFixkosten, safe_csv)
-    notebook.add(frame_fix, text="Fixkosten")
+        # Scheduler Tab
+        frame_scheduler = ttk.Frame(notebook)
+        self.build_scheduler_form(frame_scheduler)
+        notebook.add(frame_scheduler, text="Scheduler")
 
-    # Tab 3: Sparplan (with monthly repeat UI)
-    frame_spar = ttk.Frame(notebook)
-    generat_formular(frame_spar, SchemaSparplan, safe_csv)
-    notebook.add(frame_spar, text="Sparplan")
+        # Wertpapier Tab
+        frame_wertpapier = ttk.Frame(notebook)
+        self.build_wertpapier_form(frame_wertpapier)
+        notebook.add(frame_wertpapier, text="Wertpapier")
 
-    # Tab 4: Einkommen (with monthly repeat UI)
-    frame_einkommen = ttk.Frame(notebook)
-    generat_formular(frame_einkommen, SchemaEinkommen, safe_csv)
-    notebook.add(frame_einkommen, text="Einkommen")
+        # Einkaufszettel Bild Tab
+        frame_bild = ttk.Frame(notebook)
+        self.build_bild_form(frame_bild)
+        notebook.add(frame_bild, text="Einkaufszettel Bild")
 
-    # Tab 5: Umbuchung (with monthly repeat UI)
-    frame_umbuchung = ttk.Frame(notebook)
-    generat_formular(frame_umbuchung, SchemaUmbuchung, safe_csv)
-    notebook.add(frame_umbuchung, text="Umbuchung")
+    def build_einkauf_form(self, parent):
+        ttk.Label(parent, text="Name").grid(row=0, column=0, sticky="w")
+        name_entry = ttk.Entry(parent)
+        name_entry.grid(row=0, column=1)
 
-    # Tab 6: Upload receipt image
-    frame_bild = ttk.Frame(notebook)
-    ttk.Label(frame_bild, text="Select image for OCR").pack(pady=10)
-    ttk.Button(frame_bild, text="Upload image", command=bild_upload).pack()
-    notebook.add(frame_bild, text="Beleg hochladen")
+        ttk.Label(parent, text="Betrag").grid(row=1, column=0, sticky="w")
+        betrag_entry = ttk.Entry(parent)
+        betrag_entry.grid(row=1, column=1)
 
-    root.mainloop()
+        ttk.Label(parent, text="Kategorie").grid(row=2, column=0, sticky="w")
+        kategorie_entry = ttk.Entry(parent)
+        kategorie_entry.grid(row=2, column=1)
 
+        ttk.Label(parent, text="Konto").grid(row=3, column=0, sticky="w")
+        konto_entry = ttk.Entry(parent)
+        konto_entry.grid(row=3, column=1)
 
-def generat_formular(parent, schema_class: Type, speichern_callback):
-    """
-    Description:
-        Dynamically build a form for a given dataclass schema,
-        using an editable Combobox for 'name' on three schemas.
-    """
-    entrance: Dict[str, ttk.Entry] = {}
+        ttk.Label(parent, text="Ausgabentyp").grid(row=4, column=0, sticky="w")
+        typ_entry = ttk.Entry(parent)
+        typ_entry.grid(row=4, column=1)
 
-    # layout grid: we'll increment row numbers
-    row_idx = 0
-
-    # determine if this schema supports monthly-repeat
-    has_monthly = schema_class in (
-        SchemaFixkosten, SchemaSparplan, SchemaEinkommen, SchemaUmbuchung
-        )
-
-    # ----- NAME field: Combobox for three schemas, else Entry -----
-    ttk.Label(parent, text="name").grid(row=row_idx, column=0, sticky="w")
-    if schema_class in (
-        SchemaFixkosten,
-        SchemaSparplan,
-        SchemaEinkommen,
-        SchemaUmbuchung
-    ):
-        name_var = StringVar()
-        names = load_template_names(schema_class)
-        name_widget = ttk.Combobox(
-            parent,
-            textvariable=name_var,
-            values=names,
-            state="normal"  # editable
-        )
-        # on select or finish edit, populate rest
-        name_widget.bind(
-            "<<ComboboxSelected>>",
-            lambda e: populate_from_template(
-                schema_class, name_var.get(),
-                entrance, monatlich_var, day_entry
-            ))
-        name_widget.bind(
-            "<FocusOut>",
-            lambda e: populate_from_template(
-                schema_class, name_var.get(),
-                entrance, monatlich_var, day_entry
-            ))
-    else:
-        name_widget = ttk.Entry(parent)
-    name_widget.grid(row=row_idx, column=1, sticky="ew")
-    entrance["name"] = name_widget
-    row_idx += 1
-
-    # ----- all other dataclass fields (except name) -----
-    for fld in [f for f in fields(schema_class) if f.name != "name"]:
-        ttk.Label(parent, text=fld.name).grid(
-            row=row_idx, column=0, sticky="w"
+        ttk.Label(parent, text="Datum (YYYY-MM-DD)").grid(
+            row=5,
+            column=0,
+            sticky="w"
             )
-        ent = ttk.Entry(parent)
-        ent.grid(row=row_idx, column=1, sticky="ew")
-        entrance[fld.name] = ent
-        row_idx += 1
+        datum_entry = ttk.Entry(parent)
+        datum_entry.grid(row=5, column=1)
 
-    # ----- monthly-repeat controls -----
-    monatlich_var = tk.BooleanVar(value=False)
-    if has_monthly:
-        chk = ttk.Checkbutton(
-            parent, text="Monatlich wiederholen", variable=monatlich_var
-        )
-        chk.grid(row=row_idx, column=0, columnspan=2, sticky="w", pady=(10, 0))
-        row_idx += 1
+        ttk.Button(parent, text="Speichern", command=lambda: self.save_einkauf(
+            name_entry.get(),
+            betrag_entry.get(),
+            kategorie_entry.get(),
+            konto_entry.get(),
+            typ_entry.get(),
+            datum_entry.get()
+        )).grid(row=6, column=0, columnspan=2, pady=10)
 
-        ttk.Label(parent, text="Tag im Monat").grid(
-            row=row_idx, column=0, sticky="w"
-        )
-        day_entry = ttk.Entry(parent)
-        day_entry.grid(row=row_idx, column=1, sticky="ew")
-        row_idx += 1
-    else:
-        # dummy so lambdas above don't break
-        day_entry = ttk.Entry(parent)
+    def build_scheduler_form(self, parent):
+        ttk.Label(parent, text="Name").grid(row=0, column=0, sticky="w")
+        name_entry = ttk.Entry(parent)
+        name_entry.grid(row=0, column=1)
 
-    # ----- SAVE callback -----
-    def safe():
-        """
-        Description:
-            Gather form inputs, instantiate schema, save CSV + template.
-        """
+        ttk.Label(parent, text="Betrag").grid(row=1, column=0, sticky="w")
+        betrag_entry = ttk.Entry(parent)
+        betrag_entry.grid(row=1, column=1)
+
+        ttk.Label(parent, text="Kategorie").grid(row=2, column=0, sticky="w")
+        kategorie_entry = ttk.Entry(parent)
+        kategorie_entry.grid(row=2, column=1)
+
+        ttk.Label(parent, text="Wertpapier").grid(row=3, column=0, sticky="w")
+        wertpapier_entry = ttk.Entry(parent)
+        wertpapier_entry.grid(row=3, column=1)
+
+        ttk.Label(parent, text="Anteile").grid(row=4, column=0, sticky="w")
+        anteile_entry = ttk.Entry(parent)
+        anteile_entry.grid(row=4, column=1)
+
+        ttk.Label(parent, text="Ausgangs Konto").grid(
+            row=5,
+            column=0,
+            sticky="w"
+            )
+        konto_aus_entry = ttk.Entry(parent)
+        konto_aus_entry.grid(row=5, column=1)
+
+        ttk.Label(parent, text="Eingangs Konto").grid(
+            row=6,
+            column=0,
+            sticky="w"
+            )
+        konto_ein_entry = ttk.Entry(parent)
+        konto_ein_entry.grid(row=6, column=1)
+
+        ttk.Label(parent, text="Start-Datum (YYYY-MM-DD)").grid(
+            row=7,
+            column=0,
+            sticky="w"
+            )
+        start_entry = ttk.Entry(parent)
+        start_entry.grid(row=7, column=1)
+
+        ttk.Label(parent, text="Next Due (YYYY-MM-DD)").grid(
+            row=8,
+            column=0,
+            sticky="w"
+            )
+        next_due_entry = ttk.Entry(parent)
+        next_due_entry.grid(row=8, column=1)
+
+        active_var = tk.BooleanVar()
+        active_check = ttk.Checkbutton(
+            parent,
+            text="Aktiv",
+            variable=active_var
+            )
+        active_check.grid(row=9, column=0, columnspan=2, sticky="w")
+
+        ttk.Button(
+            parent,
+            text="Speichern",
+            command=lambda: self.save_scheduler(
+                name_entry.get(),
+                betrag_entry.get(),
+                kategorie_entry.get(),
+                wertpapier_entry.get(),
+                anteile_entry.get(),
+                konto_aus_entry.get(),
+                konto_ein_entry.get(),
+                start_entry.get(),
+                next_due_entry.get(),
+                active_var.get()
+            )).grid(row=10, column=0, columnspan=2, pady=10)
+
+    def build_wertpapier_form(self, parent):
+        ttk.Label(parent, text="Name").grid(row=0, column=0, sticky="w")
+        name_entry = ttk.Entry(parent)
+        name_entry.grid(row=0, column=1)
+
+        ttk.Label(parent, text="ISIN").grid(row=1, column=0, sticky="w")
+        isin_entry = ttk.Entry(parent)
+        isin_entry.grid(row=1, column=1)
+
+        ttk.Label(parent, text="Ticker").grid(row=2, column=0, sticky="w")
+        ticker_entry = ttk.Entry(parent)
+        ticker_entry.grid(row=2, column=1)
+
+        ttk.Label(parent, text="Instrument").grid(row=3, column=0, sticky="w")
+        instrument_entry = ttk.Entry(parent)
+        instrument_entry.grid(row=3, column=1)
+
+        ttk.Button(
+            parent,
+            text="Speichern",
+            command=lambda: self.save_wertpapier(
+                name_entry.get(),
+                isin_entry.get(),
+                ticker_entry.get(),
+                instrument_entry.get()
+            )).grid(row=4, column=0, columnspan=2, pady=10)
+
+    def build_bild_form(self, parent):
+        ttk.Label(parent, text="Bild auswählen und hochladen").pack(pady=10)
+        ttk.Button(
+            parent,
+            text="Bild auswählen",
+            command=self.upload_bild
+            ).pack()
+
+    def save_einkauf(self, name, betrag, kategorie, konto, typ, datum):
         try:
-            # 1) build instance from form
-            data = {}
-            for fld in fields(schema_class):
-                val = entrance[fld.name].get()
-                if fld.name == "datum":
-                    data[fld.name] = datetime.strptime(val, "%d.%m.%Y")
-                else:
-                    origin = get_origin(fld.type)
-                    args = get_args(fld.type)
-                    if origin is Union and Decimal in args:
-                        data[fld.name] = Decimal(val) if val else None
-                    elif fld.type is Decimal:
-                        data[fld.name] = Decimal(val)
-                    else:
-                        data[fld.name] = val
-            inst = schema_class(**data)
-
-            # 2) compute missing preis/anteile for Sparplan
-            if isinstance(inst, SchemaSparplan):
-                # Kurs holen
-                kurs = fetch_low_yfinance_on_date(inst.ticker, inst.datum)
-
-                # eine Kopie anlegen, in der wir vollständig auffüllen
-                save_inst = deepcopy(inst)
-                if not save_inst.preis and save_inst.anteile:
-                    save_inst.preis = save_inst.anteile * kurs
-                elif save_inst.preis and not save_inst.anteile:
-                    save_inst.anteile = save_inst.preis / kurs
-
-                # damit CSV speichern
-                speichern_callback(save_inst)
-
-            else:
-                # 3) save main CSV
-                speichern_callback(inst)
-
-            # 4) handle template upsert (single or recurring)
-            if monatlich_var.get() and has_monthly:
-                # compute next_due from day_entry
-                day = int(day_entry.get())
-                today = datetime.today().date()
-                # find first due > today
-                next_due = today.replace(day=day)
-                if next_due <= today:
-                    next_due += relativedelta(months=1)
-                upsert_template_entry(schema_class, inst, next_due, True)
-            else:
-                # single entry → next_due = inst.datum, active=False
-                upsert_template_entry(
-                    schema_class,
-                    inst,
-                    inst.datum.date(),
-                    False
-                )
-
-            # 5) clear form
-            for w in entrance.values():
-                w.delete(0, tk.END)
-            day_entry.delete(0, tk.END)
-            monatlich_var.set(False)
-
+            # Hier würdest du dein DB-Insert aufrufen
+            betrag_decimal = Decimal(betrag)
+            datum_parsed = datetime.strptime(datum, "%Y-%m-%d")
+            print(f"Speichern: {name}, {betrag_decimal}, {kategorie}, {konto},\
+                  {typ}, {datum_parsed}")
+            # z.B. db.insert_kontobewegung(...)
+            messagebox.showinfo("Erfolg", "Einkauf gespeichert")
         except Exception as e:
             messagebox.showerror("Fehler", str(e))
 
-    # ----- PLACE save button -----
-    btn = ttk.Button(parent, text="Speichern", command=safe)
-    btn.grid(row=row_idx, column=0, columnspan=2, pady=10, sticky="ew")
-
-
-def bild_upload():
-    """
-    Description:
-        Open a file dialog to select an image for OCR.
-    Input:
-        None
-    Output:
-        Displays a messagebox with the selected path; prints to console.
-    """
-    filepath = filedialog.askopenfilename(
-        filetypes=[("Images", "*.png *.jpg *.jpeg")])
-    if filepath:
-        messagebox.showinfo("Image uploaded", f"Path: {filepath}")
-        print(f"Image path: {filepath}")
-
-
-def safe_csv(instance):
-    """
-    Description:
-        Append a single dataclass-instance row to its corresponding CSV.
-        For Sparplan, if anteile is missing, recalc based on price and date.
-    Input:
-        instance -- one instance of SchemaKaufitem/Fixkosten/Sparplan/Einkommen
-    Output:
-        Writes one row to the CSV file; returns None.
-    """
-    if isinstance(instance, SchemaSparplan):
-        # recalc shares if still missing
-        if instance.preis and not instance.anteile:
-            print("Datum: ", instance.datum)
-            print("Preis: ", instance.preis)
-            price = fetch_low_yfinance_on_date(
-                instance.ticker, instance.datum)
-            instance.anteile = instance.preis / price
-
-    path = FILES[type(instance)]
-    cols = [f.name for f in fields(instance)]
-    file_exists = os.path.isfile(path)
-
-    with open(path, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=cols)
-        if not file_exists:
-            writer.writeheader()
-        row = {
-            k: (v.date().isoformat() if isinstance(v, datetime) else str(v))
-            for k, v in instance.__dict__.items()
-        }
-        writer.writerow(row)
-
-
-def load_unique_names(schema_class):
-    """
-    Description:
-        Read the CSV for a schema and collect unique 'name' values.
-    Input:
-        schema_class -- the dataclass type
-    Output:
-        list of str, sorted
-    """
-    path = FILES[schema_class]
-    if not os.path.exists(path):
-        return []
-    with open(path, newline='', encoding='utf-8') as f:
-        names = {row['name'] for row in csv.DictReader(f)}
-    return sorted(names)
-
-
-def load_latest_entry(schema_class, name, entrance):
-    """
-    Description:
-        Load the most recent CSV row matching `name` into the form fields.
-    Input:
-        schema_class -- the dataclass type
-        name         -- the selected name to look up
-        entrance     -- dict mapping field names to ttk.Entry widgets
-    Output:
-        Fills the Entry widgets in-place; returns None.
-    """
-    path = FILES[schema_class]
-    latest = None
-    latest_dt = datetime.min
-    with open(path, newline='', encoding='utf-8') as f:
-        for row in csv.DictReader(f):
-            if row['name'] != name:
-                continue
-            d = datetime.fromisoformat(row['datum'])
-            if d > latest_dt:
-                latest_dt, latest = d, row
-
-    if latest:
-        for k, widget in entrance.items():
-            widget.delete(0, tk.END)
-            if k == "datum":
-                # parse ISO und formatiere neu
-                dt = datetime.fromisoformat(latest[k])
-                widget.insert(0, dt.strftime("%d.%m.%Y"))
-            else:
-                widget.insert(0, latest.get(k, ""))
-
-
-def generate_recurring_entries():
-    """
-    Description:
-        On startup (or whenever called), read the Sparplan template CSV and
-        for each active entry:
-          1. Catch up all missed months by querying the live low price for
-             each due date and writing a row to the main CSV.
-          2. Advance next_due by one month each time until it falls > today.
-          3. Rewrite the template CSV with the updated next_due for each entry.
-    Input:
-        None (uses global TEMPLATE_FILES, safe_csv, fetch_low_yfinance_on_date)
-    Output:
-        Appends rows into safe_sparplan.csv and updates templates_sparplan.csv.
-    """
-    today = datetime.today().date()
-    tpl = TEMPLATE_FILES[SchemaSparplan]
-    # build header: all dataclass fields + next_due + active
-    headers = [f.name for f in fields(SchemaSparplan)] + ["next_due", "active"]
-
-    # ensure the template file exists
-    if not os.path.isfile(tpl):
-        with open(tpl, 'w', newline='', encoding='utf-8') as f:
-            csv.DictWriter(f, fieldnames=headers).writeheader()
-
-    updated_rows = []
-    # read existing template entries
-    with open(tpl, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # keep inactive entries untouched
-            if row.get("active") != "True":
-                updated_rows.append(row)
-                continue
-
-            # 1) build a base SchemaSparplan instance by converting types
-            data = {}
-            for fld in fields(SchemaSparplan):
-                raw = row.get(fld.name)
-                if raw is None:
-                    continue
-                if fld.name == "datum":
-                    data[fld.name] = datetime.fromisoformat(raw)
-                elif fld.type in (Decimal, Optional[Decimal]):
-                    data[fld.name] = Decimal(raw) if raw else None
-                else:
-                    data[fld.name] = raw
-            base_inst = SchemaSparplan(**data)
-
-            # 2) catch-up loop for all months ≤ today
-            due = datetime.fromisoformat(row["next_due"]).date()
-            while due <= today:
-                # always re-fetch live price and recalc shares
-                kurs = fetch_low_yfinance_on_date(base_inst.ticker, due)
-                shares = base_inst.preis / kurs
-
-                # use dataclasses.replace to only change datum & anteile
-                inst = replace(base_inst, datum=due, anteile=shares)
-                safe_csv(inst)
-
-                due += relativedelta(months=1)
-
-            # 3) bump next_due forward to the first date > today
-            row["next_due"] = due.isoformat()
-            updated_rows.append(row)
-
-    # rewrite the template CSV with updated next_due values
-    with open(tpl, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(updated_rows)
-
-
-# --- load_template_names ------------------
-def load_template_names(schema_class: Type) -> List[str]:
-    """
-    Description:
-        Read the template CSV for this schema and return all unique 'name'
-        values.
-    Input:
-        schema_class -- one of SchemaFixkosten, SchemaSparplan, SchemaEinkommen
-    Output:
-        sorted list of strings
-    """
-    tpl = TEMPLATE_FILES[schema_class]
-    if not os.path.exists(tpl):
-        return []
-    with open(tpl, newline="", encoding="utf-8") as f:
-        return sorted({row["name"] for row in csv.DictReader(f)})
-
-
-# --- populate_from_template ----------------
-def populate_from_template(
-    schema_class: Type,
-    name: str,
-    entrance: Dict[str, ttk.Entry],
-    monatlich_var: tk.BooleanVar,
-    day_entry: ttk.Entry
-) -> None:
-    """
-    Description:
-        If `name` exists in the template CSV, load that row into the form.
-    Input:
-        schema_class  -- the dataclass type
-        name          -- selected name
-        entrance      -- dict mapping field names to Entry widgets
-        monatlich_var -- BooleanVar for monthly-repeat checkbox
-        day_entry     -- Entry for day-of-month
-    Output:
-        fills the form in-place; returns None
-    """
-    tpl = TEMPLATE_FILES[schema_class]
-    if not os.path.exists(tpl):
-        return
-
-    with open(tpl, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            if row["name"] != name:
-                continue
-            # fill each field except "name"
-            for fld, widget in entrance.items():
-                if fld == "name":
-                    continue
-                widget.delete(0, tk.END)
-                if fld == "datum" and row.get(fld):
-                    dt = datetime.fromisoformat(row[fld])
-                    widget.insert(0, dt.strftime("%d.%m.%Y"))
-                else:
-                    widget.insert(0, row.get(fld, ""))
-            # set monthly checkbox and day
-            active = row.get("active", "False") == "True"
-            monatlich_var.set(active)
-            # extract day from next_due
-            if active and "next_due" in row:
-                day = datetime.fromisoformat(row["next_due"]).day
-                day_entry.delete(0, tk.END)
-                day_entry.insert(0, f"{day:02}")
-            return
-
-
-# --- upsert_template_entry -----------------
-def upsert_template_entry(
-    schema_class: Type,
-    inst,
-    next_due: datetime.date,
-    active: bool
-) -> None:
-    """
-    Description:
-        Insert or update a template-row for this instance:
-        - If name exists, update 'next_due' and 'active'.
-        - Else: append a new row.
-    Input:
-        schema_class -- the dataclass type
-        inst         -- the instance just saved
-        next_due     -- date for next_due field
-        active       -- bool flag
-    Output:
-        mutates the template CSV on disk
-    """
-    tpl = TEMPLATE_FILES[schema_class]
-    headers = [f.name for f in fields(schema_class)] + ["next_due", "active"]
-
-    # read existing
-    rows = []
-    if os.path.exists(tpl):
-        with open(tpl, newline="", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
-
-    # build new row dict
-    new = {}
-    for fld in fields(schema_class):
-        val = getattr(inst, fld.name)
-        if isinstance(val, datetime):
-            new[fld.name] = val.isoformat()
-        else:
-            new[fld.name] = "" if val is None else str(val)
-    new["next_due"] = next_due.isoformat()
-    new["active"] = "True" if active else "False"
-
-    # upsert logic
-    found = False
-    for r in rows:
-        if r["name"] == inst.name:
-            r.update(new)
-            found = True
-            break
-    if not found:
-        rows.append(new)
-
-    # write back
-    with open(tpl, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-# --- file mappings ---
-FILES = {
-    SchemaKaufitem: "safe_kaufitem.csv",
-    SchemaFixkosten: "safe_fixkosten.csv",
-    SchemaSparplan: "safe_sparplan.csv",
-    SchemaEinkommen: "safe_einkommen.csv",
-    SchemaUmbuchung: "safe_umbuchungen.csv",
-}
-
-TEMPLATE_FILES = {
-    SchemaFixkosten: "templates_fixkosten.csv",
-    SchemaSparplan:  "templates_sparplan.csv",
-    SchemaEinkommen: "templates_einkommen.csv",
-    SchemaUmbuchung: "templates_umbuchungen.csv",
-}
+    def upload_bild(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Bilddateien", "*.png *.jpg *.jpeg")]
+        )
+        if file_path:
+            messagebox.showinfo("Bild hochgeladen", f"Pfad: {file_path}")
+            print(f"Bildpfad: {file_path}")

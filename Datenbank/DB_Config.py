@@ -131,6 +131,7 @@ def init_db():
         kategorie_id INTEGER,
         ausgangs_konto_id INTEGER,
         eingangs_konto_id INTEGER,
+        start_datum TEXT NOT NULL
         next_due TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0,1)),
         FOREIGN KEY (aktien_id) REFERENCES aktieninfo(id),

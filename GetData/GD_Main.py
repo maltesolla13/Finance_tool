@@ -1,9 +1,11 @@
-from GetData.GD_GUI import gui_main, generate_recurring_entries
+import tkinter as tk
+from GetData.GD_GUI import FinazntTrackerGUI
 
 
 def main():
-    generate_recurring_entries()
-    gui_main()
+    root = tk.Tk()
+    FinazntTrackerGUI(root)
+    root.mainloop()
 
 
 if __name__ == "__main__":

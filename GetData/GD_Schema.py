@@ -5,60 +5,32 @@ from typing import Optional
 
 
 @dataclass
-class SchemaKaufitem:
+class SchemaEinkauf:
     name: str
-    preis: Decimal
+    betrag: Decimal
     kategorie: str
     konto: str
-    laden: str
+    ausgabentyp: str
     datum: datetime
-
-    class Config:
-        extra = 'allow'
 
 
 @dataclass
-class SchemaFixkosten:
+class SchemaScheduler:
     name: str
-    preis: Decimal
     kategorie: str
-    konto: str
-    datum: datetime
-
-    class Config:
-        extra = 'allow'
+    start_datum: datetime
+    next_due: datetime
+    active: bool
+    konto_aus: Optional[str] = None
+    konto_ein: Optional[str] = None
+    wertpapier: Optional[str] = None
+    anteile: Optional[Decimal] = None
+    betrag: Optional[Decimal] = None
 
 
 @dataclass
-class SchemaEinkommen:
-    name: str
-    preis: Decimal
-    kategorie: str
-    konto: str
-    datum: datetime
-
-    class Config:
-        extra = 'allow'
-
-
-@dataclass
-class SchemaSparplan:
+class SchemaWertpapierInfo:
     name: str
     isin: str
     ticker: str  # (stock, etf, crypto)
     instrument: str
-    datum: datetime
-    preis: Optional[Decimal] = None
-    anteile: Optional[Decimal] = None
-
-    class Config:
-        extra = 'allow'
-
-
-@dataclass
-class SchemaUmbuchung:
-    name: str
-    betrag: Decimal
-    sender: str
-    empfänger: str
-    datum: datetime

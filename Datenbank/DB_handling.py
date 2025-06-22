@@ -484,7 +484,8 @@ class DBHandler:
         -----
         scheduler: Ein Objekt mit Attribut
             'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
-            'ausgangs_konto_id', 'eingangs_konto_id', 'next_due', 'active'
+            'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
+            'next_due', 'active'
 
         Response
         --------
@@ -493,8 +494,8 @@ class DBHandler:
         self.cursor.execute("""
             INSERT INTO scheduler (name, betrag, anteil, aktien_id,
                             kategorie_id, ausgangs_konto_id,
-                            eingangs_konto_id, next_due, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            eingangs_konto_id,start_datum, next_due, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             scheduler.name,
             scheduler.betrag,
@@ -503,6 +504,7 @@ class DBHandler:
             scheduler.kategorie_id,
             scheduler.ausgangs_konto_id,
             scheduler.eingangs_konto_id,
+            scheduler.start_datum,
             scheduler.next_due,
             scheduler.active
         ))
@@ -520,12 +522,12 @@ class DBHandler:
         --------
         List[Tuple[int, int, int, float, float, float, float, str]]
             Liste mit Tupeln (id, name, betrag, anteil, aktien_id,
-            kategorie_id, ausgangs_konto_id, eingangs_konto_id,
+            kategorie_id, ausgangs_konto_id, eingangs_konto_id, start_datum,
             next_due, active) des scheduler
         """
         self.cursor.execute("SELECT id, name, betrag, anteil, aktien_id,\
                             kategorie_id, ausgangs_konto_id,\
-                            eingangs_konto_id,next_due, active\
+                            eingangs_konto_id, start_datum, next_due, active\
                             FROM scheduler")
         scheduler = self.cursor.fetchall()
         return scheduler
@@ -539,7 +541,8 @@ class DBHandler:
         -----
         scheduler: Ein Objekt mit Attributen
             'id', 'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
-            'ausgangs_konto_id', 'eingangs_konto_id', 'next_due', 'active'
+            'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
+            'next_due', 'active'
 
         Response
         --------
@@ -554,6 +557,7 @@ class DBHandler:
                 kategorie_id = ?,
                 ausgangs_konto_id = ?,
                 eingangs_konto_id = ?,
+                start_datum = ?,
                 next_due = ?,
                 active = ?
             WHERE id = ?
@@ -565,6 +569,7 @@ class DBHandler:
             scheduler.kategorie_id,
             scheduler.ausgangs_konto_id,
             scheduler.eingangs_konto_id,
+            scheduler.start_datum,
             scheduler.next_due,
             scheduler.active,
             scheduler.id
