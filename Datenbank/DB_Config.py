@@ -1,8 +1,10 @@
+import os
 import sqlite3
 
 
 def get_connection():
-    conn = sqlite3.connect("finance_tracker.db")
+    db_path = os.path.join(os.path.dirname(__file__), "finance_tracker.db")
+    conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
