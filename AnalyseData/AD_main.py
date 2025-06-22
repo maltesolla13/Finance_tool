@@ -7,12 +7,17 @@ from AnalyseData.AD_Kategories import spending_overall, \
 # from AnalyseData.AD_SummUp import current_summary, future_projection
 
 
+depot = "safe_sparplan.csv"
+einkommen = "safe_einkommen.csv"
+fixkosten = "safe_fixkosten.csv"
+
+
 def analyse_dashboard_data():
-    calculate_buyin = calculate_input("safe_sparplan.csv")
-    print("calculate buyin", calculate_buyin)
-    calculate_shares()
-    calculate_depot_value()
-    calculate_depot_distribution()
+    calculated_buyin = calculate_input(depot)
+    print("calculate buyin", calculated_buyin)
+    calculated_shares = calculate_shares(depot)
+    calculate_depot_value(calculated_shares)
+    calculate_depot_distribution(calculated_shares)
     account_balance()
     overal_balance()
     account_distribution()
