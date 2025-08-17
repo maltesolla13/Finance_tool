@@ -129,6 +129,23 @@ def init_db():
     )
     """)
 
+    # Sparziel
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS savings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ausgangs_konto_id INTEGER,
+        kategorie_id INTEGER,
+        betrag REAL, -- optional
+        start_datum TEXT NOT NULL,
+        next_due TEXT NOT NULL,
+        Sparrate_e INTEGER,
+        Sparrate_p INTEGER,
+        Verwendungszweck TEXT NOT NULL,
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
+        FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id)
+    )
+    """)
+
     # Scheduler
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS scheduler (
@@ -158,8 +175,8 @@ def init_db():
         betrag REAL, -- optional
         kategorie_id INTEGER,
         konto_id INTEGER,
-        laden_id, INTEGER
-        ausgabentyp_id: INTEGER
+        laden_id INTEGER,
+        ausgabentyp_id: INTEGER,
         datum TEXT NOT NULL,
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),

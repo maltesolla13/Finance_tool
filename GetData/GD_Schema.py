@@ -89,8 +89,21 @@ class SchemaDepotstand:
 
 
 @dataclass
+class SchemaSparziel:
+    id: Optional[int] = None
+    konto_aus_id: int
+    kategorie_id: int
+    summe_betrag: Decimal
+    start_datum: datetime
+    next_due: datetime
+    sparrate_e: Decimal
+    sparrate_p: Decimal
+    verwendungszweck: str
+
+
+@dataclass
 class SchemaScheduler:
-    id:    Optional[int] = None
+    id: Optional[int] = None
     name: str
     kategorie_id: int
     start_datum: datetime
@@ -108,8 +121,8 @@ class SchemaEinkauf:
     id: Optional[int] = None
     name: str
     betrag: Decimal
-    kategorie_id: str
+    kategorie_id: int
     konto_id: int
     laden_id: int
-    ausgabentyp_id: str
+    ausgabentyp_id: int
     datum: datetime

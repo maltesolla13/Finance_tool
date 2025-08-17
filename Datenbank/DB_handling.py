@@ -2,7 +2,7 @@ from Datenbank.DB_Config import get_connection
 from GetData.GD_Schema import SchemaEinkauf, SchemaScheduler, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
-    SchemaKontobewegung, SchemaKontostand, SchemaLaden
+    SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel
 
 
 class DBHandler:
@@ -32,6 +32,66 @@ class DBHandler:
         self.cursor.execute(f"SELECT DISTINCT name FROM {table}")
         names = [row[0] for row in self.cursor.fetchall()]
         return sorted(names)
+
+    def insert_laden(self, laden: SchemaLaden) -> SchemaLaden:
+        """
+        Fügt ein neuen Laden in die Tabelle laden ein.
+
+        Input
+        -----
+        laden: Ein Objekt mit Attribut
+            'name'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            INSERT INTO laden (name)
+            VALUES (?)
+        """, (
+            laden.name,
+        ))
+
+    def load_laden(self) -> list[SchemaLaden]:
+        """
+        Lädt alle Einträge aus der Tabelle laden und gibt diese als Liste von
+        Tupeln zurück.
+
+        Input
+        -----
+        None
+
+        Response
+        --------
+        List[Tuple[int, str]]
+            Liste mit Tupeln (id, name) der Läden
+        """
+        self.cursor.execute("SELECT id, name FROM laden")
+        laden = self.cursor.fetchall()
+        return laden
+
+    def update_laden(self, laden: SchemaLaden) -> None:
+        """
+        Aktualisiert einen bestehenden Laden-Eintrag in der Tabelle laden.
+
+        Input
+        -----
+        konto: Ein Objekt mit Attributen
+            'id', 'name'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            UPDATE laden
+            SET name = ?
+            WHERE id = ?
+        """, (
+            laden.name,
+            laden.id
+        ))
 
     def insert_konto(self, konto: SchemaKonto) -> SchemaKonto:
         """
@@ -153,7 +213,10 @@ class DBHandler:
             kategorie.id
         ))
 
-    def insert_ausgabentyp(self, ausgabentyp: SchemaAusgabentyp) -> SchemaAusgabentyp:
+    def insert_ausgabentyp(
+            self,
+            ausgabentyp: SchemaAusgabentyp
+    ) -> SchemaAusgabentyp:
         """
         Fügt einen neuen Ausgabentyp in die Tabelle ausgabentypen ein.
 
@@ -213,7 +276,10 @@ class DBHandler:
             ausgabentyp.id
         ))
 
-    def insert_wertpapierinfo(self, wertpapierinfo: SchemaWertpapierInfo) -> SchemaWertpapierInfo:
+    def insert_wertpapierinfo(
+            self,
+            wertpapierinfo: SchemaWertpapierInfo
+    ) -> SchemaWertpapierInfo:
         """
         Fügt eine neue Aktie in die Tabelle wertpapierinfo ein.
 
@@ -236,9 +302,12 @@ class DBHandler:
             wertpapierinfo.instrument
         ))
 
-    def update_wertpapierinfo(self, wertpapierinfo, id):
+    def update_wertpapierinfo(
+            self,
+            wertpapierinfo: SchemaWertpapierInfo
+    ) -> None:
         """
-       Aktualisiert einen bestehenden Aktieneintrag.
+       Aktualisiert einen bestehenden wertpapierinfo.
 
         Input
         -----
@@ -249,7 +318,7 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            UPDATE aktieninfo
+            UPDATE wertpapierinfo
             SET name = ?, isin = ?, ticker = ?, instrument = ?
             WHERE id = ?
         """, (
@@ -260,7 +329,7 @@ class DBHandler:
             id
         ))
 
-    def load_wertpapierinfo(self):
+    def load_wertpapierinfo(self) -> list[SchemaWertpapierInfo]:
         """
         Lädt alle Einträge aus der Tabelle wertpapierinfo und gibt diese als
         Liste von Tupeln zurück.
@@ -276,11 +345,11 @@ class DBHandler:
             der aktieninfo
         """
         self.cursor.execute("SELECT id, name, isin, ticker, instrument\
-                            FROM aktieninfo")
-        aktieninfo = self.cursor.fetchall()
-        return aktieninfo
+                            FROM wertpapierinfo")
+        wertpapierinfo = self.cursor.fetchall()
+        return wertpapierinfo
 
-    def insert_kurs(self, kurs):
+    def insert_kurs(self, kurs: SchemaAktienKurs) -> SchemaAktienKurs:
         """
         Fügt eine neue Aktienstand in die Tabelle kurs ein.
 
@@ -302,7 +371,7 @@ class DBHandler:
             kurs.datum
         ))
 
-    def load_kurs(self):
+    def load_kurs(self) -> list[SchemaAktienKurs]:
         """
         Lädt alle Einträge aus der Tabelle kurs und gibt diese als
         Liste von Tupeln zurück.
@@ -320,7 +389,10 @@ class DBHandler:
         kurs = self.cursor.fetchall()
         return kurs
 
-    def insert_kontobewegung(self, kontobewegung):
+    def insert_kontobewegung(
+            self,
+            kontobewegung: SchemaKontobewegung
+    ) -> SchemaKontobewegung:
         """
         Fügt ein neues Konto in die Tabelle konten ein.
 
@@ -346,7 +418,7 @@ class DBHandler:
             kontobewegung.datum
         ))
 
-    def load_kontobewegung(self):
+    def load_kontobewegung(self) -> list[SchemaKontobewegung]:
         """
         Lädt alle Einträge aus der Tabelle kontobewegung und gibt diese als
         Liste von Tupeln zurück.
@@ -366,7 +438,10 @@ class DBHandler:
         kontobewegung = self.cursor.fetchall()
         return kontobewegung
 
-    def insert_kontostand(self, kontostand):
+    def insert_kontostand(
+            self,
+            kontostand: SchemaKontostand
+    ) -> SchemaKontostand:
         """
         Fügt eine neue Kontostand in die Tabelle kontostand ein.
 
@@ -388,7 +463,7 @@ class DBHandler:
             kontostand.datum
         ))
 
-    def load_kontostand(self):
+    def load_kontostand(self) -> list[SchemaKontostand]:
         """
         Lädt alle Einträge aus der Tabelle kontostand und gibt diese als
         Liste von Tupeln zurück.
@@ -407,7 +482,10 @@ class DBHandler:
         kontostand = self.cursor.fetchall()
         return kontostand
 
-    def insert_depotbewegung(self, depotbewegung):
+    def insert_depotbewegung(
+            self,
+            depotbewegung: SchemaDepotbewegung
+    ) -> SchemaDepotbewegung:
         """
         Fügt eine neue Depotbewegung in die Tabelle depotbewegung ein.
 
@@ -435,7 +513,7 @@ class DBHandler:
             depotbewegung.datum
         ))
 
-    def load_depotbewegung(self):
+    def load_depotbewegung(self) -> list[SchemaDepotbewegung]:
         """
         Lädt alle Einträge aus der Tabelle depotbewegung und gibt diese als
         Liste von Tupeln zurück.
@@ -455,7 +533,10 @@ class DBHandler:
         depotbewegung = self.cursor.fetchall()
         return depotbewegung
 
-    def insert_depotstand(self, depotstand):
+    def insert_depotstand(
+            self,
+            depotstand: SchemaDepotstand
+    ) -> SchemaDepotstand:
         """
         Fügt eine neue depotstand in die Tabelle depotstand ein.
 
@@ -483,7 +564,7 @@ class DBHandler:
             depotstand.datum
         ))
 
-    def load_depotstand(self):
+    def load_depotstand(self) -> list[SchemaDepotstand]:
         """
         Lädt alle Einträge aus der Tabelle depotstand und gibt diese als
         Liste von Tupeln zurück.
@@ -504,7 +585,10 @@ class DBHandler:
         depotstand = self.cursor.fetchall()
         return depotstand
 
-    def insert_scheduler(self, scheduler):
+    def insert_scheduler(
+            self,
+            scheduler: SchemaScheduler
+    ) -> SchemaScheduler:
         """
         Fügt eine neue scheduler Eintrag in die Tabelle scheduler ein.
 
@@ -537,7 +621,7 @@ class DBHandler:
             scheduler.active
         ))
 
-    def load_scheduler(self):
+    def load_scheduler(self) -> list[SchemaScheduler]:
         """
         Lädt alle Einträge aus der Tabelle scheduler und gibt diese als
         Liste von Tupeln zurück.
@@ -560,7 +644,7 @@ class DBHandler:
         scheduler = self.cursor.fetchall()
         return scheduler
 
-    def update_scheduler(self, scheduler):
+    def update_scheduler(self, scheduler: SchemaScheduler) -> None:
         """
         Aktualisiert einen bestehenden Scheduler-Eintrag in der Tabelle
         scheduler.
@@ -601,4 +685,186 @@ class DBHandler:
             scheduler.next_due,
             scheduler.active,
             scheduler.id
+        ))
+
+    def insert_savings(
+            self,
+            savings: SchemaSparziel
+    ) -> SchemaSparziel:
+        """
+        Fügt eine neue savings Eintrag in die Tabelle savings ein.
+
+        Input
+        -----
+        savings: Ein Objekt mit Attribut
+            'ausgangs_konto_id', 'kategorie_id', 'betrag', 'start_datum',
+            'next_due', 'sparrate_e', 'sparrate_p', 'verwendungszweck'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            INSERT INTO savings (ausgangs_konto_id, kategorie_id,  betrag,
+                            start_datum, next_due, sparrate_e, sparrate_p,
+                            verwendungszweck)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            savings.ausgangs_konto_id,
+            savings.kategorie_id,
+            savings.betrag,
+            savings.start_datum,
+            savings.next_due,
+            savings.sparrate_e,
+            savings.sparrate_p,
+            savings.verwendungszweck
+        ))
+
+    def load_savings(self) -> list[SchemaSparziel]:
+        """
+        Lädt alle Einträge aus der Tabelle savings und gibt diese als
+        Liste von Tupeln zurück.
+
+        Input
+        -----
+        None
+
+        Response
+        --------
+        List[Tuple[int, int, float, str, str, float, float, str]]
+            Liste mit Tupeln (ausgangs_konto_id, kategorie_id,  betrag,
+            start_datum, next_due, sparrate_e, sparrate_p,
+            verwendungszweck) des savings
+        """
+        self.cursor.execute("SELECT ausgangs_konto_id, kategorie_id,  betrag,\
+                            start_datum, next_due, sparrate_e, sparrate_p,\
+                            verwendungszweck\
+                            FROM savings")
+        savings = self.cursor.fetchall()
+        return savings
+
+    def update_savings(self, savings: SchemaSparziel) -> None:
+        """
+        Aktualisiert einen bestehenden savings-Eintrag in der Tabelle
+        savings.
+
+        Input
+        -----
+        savings: Ein Objekt mit Attributen
+            'ausgangs_konto_id', 'kategorie_id', 'betrag', 'start_datum',
+            'next_due', 'sparrate_e', 'sparrate_p', 'verwendungszweck'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            UPDATE savings
+            SET ausgangs_konto_id = ?,
+                kategorie_id = ?,
+                betrag = ?,
+                start_datum = ?,
+                next_due = ?,
+                sparrate_e = ?,
+                sparrate_p = ?,
+                verwendungszweck = ?
+            WHERE id = ?
+        """, (
+            savings.ausgangs_konto_id,
+            savings.kategorie_id,
+            savings.betrag,
+            savings.start_datum,
+            savings.next_due,
+            savings.sparrate_e,
+            savings.sparrate_p,
+            savings.verwendungszweck,
+            savings.id
+        ))
+
+    def insert_einkauf(
+            self,
+            einkauf: SchemaEinkauf
+    ) -> SchemaEinkauf:
+        """
+        Fügt eine neue einkauf Eintrag in die Tabelle einkauf ein.
+
+        Input
+        -----
+        einkauf: Ein Objekt mit Attribut
+            'name', 'betrag', 'kategorie_id', 'konto_id', 'laden_id',
+            'ausgabentyp_id', 'datum'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            INSERT INTO einkauf (name, betrag, kategorie_id, konto_id,
+                            laden_id, ausgabentyp_id, datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            einkauf.name,
+            einkauf.betrag,
+            einkauf.kategorie_id,
+            einkauf.konto_id,
+            einkauf.laden_id,
+            einkauf.ausgabentyp_id,
+            einkauf.datum
+        ))
+
+    def load_einkauf(self) -> list[SchemaEinkauf]:
+        """
+        Lädt alle Einträge aus der Tabelle einkauf und gibt diese als
+        Liste von Tupeln zurück.
+
+        Input
+        -----
+        None
+
+        Response
+        --------
+        List[Tuple[str, float, int, int, int, int, str]]
+            Liste mit Tupeln (name, betrag, kategorie_id, konto_id,
+            laden_id, ausgabentyp_id, datum) des einkauf
+        """
+        self.cursor.execute("SELECT name, betrag,  kategorie_id,\
+                            konto_id, laden_id, ausgabentyp_id, datum,\
+                            FROM einkauf")
+        einkauf = self.cursor.fetchall()
+        return einkauf
+
+    def update_einkauf(self, einkauf: SchemaEinkauf) -> None:
+        """
+        Aktualisiert einen bestehenden einkauf-Eintrag in der Tabelle
+        einkauf.
+
+        Input
+        -----
+        einkauf: Ein Objekt mit Attributen
+            'name', 'betrag', 'kategorie_id', 'konto_id', 'laden_id',
+            'ausgabentyp_id', 'datum'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            UPDATE einkauf
+            SET name = ?,
+                betrag = ?,
+                kategorie_id = ?,
+                konto_id = ?,
+                laden_id = ?,
+                ausgabentyp_id = ?,
+                datum = ?
+            WHERE id = ?
+        """, (
+            einkauf.name,
+            einkauf.betrag,
+            einkauf.kategorie_id,
+            einkauf.konto_id,
+            einkauf.laden_id,
+            einkauf.ausgabentyp_id,
+            einkauf.datum,
+            einkauf.id
         ))
