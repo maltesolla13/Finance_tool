@@ -1,4 +1,8 @@
 from Datenbank.DB_Config import get_connection
+from GetData.GD_Schema import SchemaEinkauf, SchemaScheduler, \
+    SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
+    SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
+    SchemaKontobewegung, SchemaKontostand, SchemaLaden
 
 
 class DBHandler:
@@ -29,7 +33,7 @@ class DBHandler:
         names = [row[0] for row in self.cursor.fetchall()]
         return sorted(names)
 
-    def insert_konto(self, konto):
+    def insert_konto(self, konto: SchemaKonto) -> SchemaKonto:
         """
         Fügt ein neues Konto in die Tabelle konten ein.
 
@@ -49,7 +53,7 @@ class DBHandler:
             konto.name,
         ))
 
-    def load_konten(self):
+    def load_konten(self) -> list[SchemaKonto]:
         """
         Lädt alle Einträge aus der Tabelle konten und gibt diese als Liste von
         Tupeln zurück.
@@ -67,7 +71,7 @@ class DBHandler:
         konten = self.cursor.fetchall()
         return konten
 
-    def update_konto(self, konto):
+    def update_konto(self, konto: SchemaKonto) -> None:
         """
         Aktualisiert einen bestehenden Konot-Eintrag in der Tabelle konten.
 
@@ -89,7 +93,7 @@ class DBHandler:
             konto.id
         ))
 
-    def insert_kategorie(self, kategorie):
+    def insert_kategorie(self, kategorie: SchemaKategorie) -> SchemaKategorie:
         """
         Fügt eine neue Kategorie in die Tabelle kategorien ein.
 
@@ -109,7 +113,7 @@ class DBHandler:
             kategorie.name,
         ))
 
-    def load_kategorien(self):
+    def load_kategorien(self) -> list[SchemaKategorie]:
         """
         Lädt alle Einträge aus der Tabelle kategorien und gibt diese als Liste
         von Tupeln zurück.
@@ -127,7 +131,7 @@ class DBHandler:
         kategorien = self.cursor.fetchall()
         return kategorien
 
-    def update_kategorie(self, kategorie):
+    def update_kategorie(self, kategorie: SchemaKategorie) -> None:
         """
         Aktualisiert einen bestehenden Konot-Eintrag in der Tabelle konten.
 
@@ -149,7 +153,7 @@ class DBHandler:
             kategorie.id
         ))
 
-    def insert_ausgabentyp(self, ausgabentyp):
+    def insert_ausgabentyp(self, ausgabentyp: SchemaAusgabentyp) -> SchemaAusgabentyp:
         """
         Fügt einen neuen Ausgabentyp in die Tabelle ausgabentypen ein.
 
@@ -169,7 +173,7 @@ class DBHandler:
             ausgabentyp.name,
         ))
 
-    def load_ausgabentypen(self):
+    def load_ausgabentypen(self) -> list[SchemaAusgabentyp]:
         """
         Lädt alle Einträge aus der Tabelle ausgabentypen und gibt diese als
         Liste von Tupeln zurück.
@@ -187,7 +191,7 @@ class DBHandler:
         ausgabentypen = self.cursor.fetchall()
         return ausgabentypen
 
-    def update_ausgabentyp(self, ausgabentyp):
+    def update_ausgabentyp(self, ausgabentyp: SchemaAusgabentyp) -> None:
         """
         Aktualisiert einen bestehenden Konot-Eintrag in der Tabelle konten.
 
@@ -209,9 +213,9 @@ class DBHandler:
             ausgabentyp.id
         ))
 
-    def insert_aktieninfo(self, aktieninfo):
+    def insert_wertpapierinfo(self, wertpapierinfo: SchemaWertpapierInfo) -> SchemaWertpapierInfo:
         """
-        Fügt eine neue Aktie in die Tabelle aktieninfon ein.
+        Fügt eine neue Aktie in die Tabelle wertpapierinfo ein.
 
         Input
         -----
@@ -223,18 +227,42 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO aktieninfo (name, isin, ticker, instrument)
+            INSERT INTO wertpapierinfo (name, isin, ticker, instrument)
             VALUES (?, ?, ?, ?)
         """, (
-            aktieninfo.name,
-            aktieninfo.isin,
-            aktieninfo.ticker,
-            aktieninfo.instrument
+            wertpapierinfo.name,
+            wertpapierinfo.isin,
+            wertpapierinfo.ticker,
+            wertpapierinfo.instrument
         ))
 
-    def load_aktieninfo(self):
+    def update_wertpapierinfo(self, wertpapierinfo, id):
         """
-        Lädt alle Einträge aus der Tabelle aktieninfo und gibt diese als
+       Aktualisiert einen bestehenden Aktieneintrag.
+
+        Input
+        -----
+        wp
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            UPDATE aktieninfo
+            SET name = ?, isin = ?, ticker = ?, instrument = ?
+            WHERE id = ?
+        """, (
+            wertpapierinfo["name"],
+            wertpapierinfo["isin"],
+            wertpapierinfo["ticker"],
+            wertpapierinfo["instrument"],
+            id
+        ))
+
+    def load_wertpapierinfo(self):
+        """
+        Lädt alle Einträge aus der Tabelle wertpapierinfo und gibt diese als
         Liste von Tupeln zurück.
 
         Input

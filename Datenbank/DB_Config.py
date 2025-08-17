@@ -5,6 +5,7 @@ import sqlite3
 def get_connection():
     db_path = os.path.join(os.path.dirname(__file__), "finance_tracker.db")
     conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
@@ -37,9 +38,17 @@ def init_db():
     )
     """)
 
-    # AktienInfo
+    # Laden
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS aktieninfo (
+    CREATE TABLE IF NOT EXISTS laden (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    )
+    """)
+
+    # WertpapierInfo
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS wertpapierinfo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         isin TEXT NOT NULL,
@@ -55,7 +64,7 @@ def init_db():
         aktien_id INTEGER NOT NULL,
         kurs REAL NOT NULL,
         datum TEXT NOT NULL,
-        FOREIGN KEY (aktien_id) REFERENCES aktieninfo(id)
+        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id)
     )
     """)
 
@@ -98,7 +107,7 @@ def init_db():
         anteile REAL NOT NULL,
         datum TEXT NOT NULL,
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES aktieninfo(id),
+        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
     )
@@ -116,7 +125,7 @@ def init_db():
         entwicklung REAL NOT NULL,
         datum TEXT NOT NULL,
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES aktieninfo(id)
+        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id)
     )
     """)
 
@@ -131,13 +140,31 @@ def init_db():
         kategorie_id INTEGER,
         ausgangs_konto_id INTEGER,
         eingangs_konto_id INTEGER,
-        start_datum TEXT NOT NULL
+        start_datum TEXT NOT NULL,
         next_due TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0,1)),
-        FOREIGN KEY (aktien_id) REFERENCES aktieninfo(id),
+        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
         FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id)
+    )
+    """)
+
+    # Einkauf
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS einkauf (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        betrag REAL, -- optional
+        kategorie_id INTEGER,
+        konto_id INTEGER,
+        laden_id, INTEGER
+        ausgabentyp_id: INTEGER
+        datum TEXT NOT NULL,
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
+        FOREIGN KEY (konto_id) REFERENCES konten(id),
+        FOREIGN KEY (laden_id) REFERENCES laden(id)
+        FOREIGN KEY (ausgabentyp_id) REFERENCES ausgabentypen(id)
     )
     """)
 

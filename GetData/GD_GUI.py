@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from decimal import Decimal
 from datetime import datetime
-
+from Datenbank.DB_handling import DBHandler
 
 class FinazntTrackerGUI:
     def __init__(self, root):
@@ -182,6 +182,14 @@ class FinazntTrackerGUI:
             command=self.upload_bild
             ).pack()
 
+    def upload_bild(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Bilddateien", "*.png *.jpg *.jpeg")]
+        )
+        if file_path:
+            messagebox.showinfo("Bild hochgeladen", f"Pfad: {file_path}")
+            print(f"Bildpfad: {file_path}")
+
     def save_einkauf(self, name, betrag, kategorie, konto, typ, datum):
         try:
             # Hier würdest du dein DB-Insert aufrufen
@@ -194,10 +202,105 @@ class FinazntTrackerGUI:
         except Exception as e:
             messagebox.showerror("Fehler", str(e))
 
-    def upload_bild(self):
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Bilddateien", "*.png *.jpg *.jpeg")]
-        )
-        if file_path:
-            messagebox.showinfo("Bild hochgeladen", f"Pfad: {file_path}")
-            print(f"Bildpfad: {file_path}")
+    def save_scheduler(self, name, betrag, kategorie,  wertpapier,
+                    anteile, konto_aus, konto_ein, start, next_due, active):
+        db = DBHandler()
+
+        def find_or_create_id(name, load_func, insert_func):
+            for row in load_func():
+                if row[1] == name:
+                    return row[0]
+            insert_func(name)
+            return db.load_kategorien()[-1][0]
+
+        id_kategorie = find_or_create_id(
+            kategorie,
+            db.load_kategorien,
+            db.insert_kategorie
+            )
+        id_konto_aus = find_or_create_id(
+            konto_aus,
+            db.load_konten,
+            db.insert_konto
+            )
+        id_konto_ein = find_or_create_id(
+            konto_ein,
+            db.load_konten,
+            db.insert_konto
+            )
+
+        # Wertpapier-ID ermitteln
+        id_wertpapier = None
+        for row in db.load_aktieninfo():
+            if row[1] == wertpapier:
+                id_wertpapier = row[0]
+                break
+
+        if id_wertpapier is None and wertpapier:
+            messagebox.showinfo(f"Wertpapier '{wertpapier}' nicht gefunden.\
+                                Bitte zuerst im Tab 'Wertpapier' anlegen.")
+            db.close()
+            return
+
+        betrag_val = Decimal(betrag) if betrag else None
+        anteile_val = Decimal(anteile) if anteile else None
+        start_dt = datetime.strptime(start, "%Y-%m-%d")
+        next_due_dt = datetime.strptime(next_due, "%Y-%m-%d")
+
+        eintrag = {
+            "name": name,
+            "betrag": betrag_val,
+            "anteil": anteile_val,
+            "wertpapier": id_wertpapier,
+            "kategorie": id_kategorie,
+            "ausgangs_konto_id": id_konto_aus,
+            "eingangs_konto_id": id_konto_ein,
+            "start_datum": start_dt,
+            "next_due": next_due_dt,
+            "active": int(active)
+        }
+
+        found = False
+        for row in db.load_scheduler():
+            if name == row[1] or (
+                id_wertpapier is not None and id_wertpapier == row[4]
+            ):
+                db.update_scheduler(eintrag)
+                found = True
+                break
+
+        if not found:
+            db.insert_scheduler(eintrag)
+
+        db.close()
+
+    def save_wertpapier(self, name, isin, ticker, instrument):
+        try:
+            db = DBHandler()
+
+            alle_wertpapiere = db.load_aktieninfo()
+            vorhandenes_id = None
+
+            for wp in alle_wertpapiere:
+                if wp[1] == name or wp[2] == isin or wp[3] == ticker:
+                    vorhandenes_id = wp[0]
+                    break
+
+            wertpapier = {
+                "name": name,
+                "isin": isin,
+                "ticker": ticker,
+                "instrument": instrument
+            }
+
+            if vorhandenes_id:
+                db.update_aktieninfo(wertpapier, vorhandenes_id)
+                messagebox.showinfo("Aktualisiert", "Wertpapier aktualisiert.")
+            else:
+                db.insert_wertpapierinfo(wertpapier)
+                messagebox.showinfo("Erfolg", "Neues Wertpapier gespeichert.")
+
+            db.close()
+
+        except Exception as e:
+            messagebox.showerror("Fehler", str(e))
