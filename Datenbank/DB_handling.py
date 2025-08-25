@@ -3,6 +3,16 @@ from GetData.GD_Schema import SchemaEinkauf, SchemaScheduler, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel
+from decimal import Decimal
+from datetime import datetime
+
+
+def _num(x):
+    return float(x) if isinstance(x, Decimal) else x
+
+
+def _dt(x):
+    return x.isoformat() if isinstance(x, datetime) else x
 
 
 class DBHandler:
@@ -256,25 +266,14 @@ class DBHandler:
 
     def update_ausgabentyp(self, ausgabentyp: SchemaAusgabentyp) -> None:
         """
-        Aktualisiert einen bestehenden Konot-Eintrag in der Tabelle konten.
-
-        Input
-        -----
-        ausgabentyp: Ein Objekt mit Attributen
-            'id', 'name'
-
-        Response
-        --------
-        None
+        Aktualisiert einen Ausgabentyp.
         """
         self.cursor.execute("""
-            UPDATE ausgabentyp
+            UPDATE ausgabentypen
             SET name = ?
             WHERE id = ?
-        """, (
-            ausgabentyp.name,
-            ausgabentyp.id
-        ))
+        """, (ausgabentyp.name, ausgabentyp.id))
+        self.conn.commit()
 
     def insert_wertpapierinfo(
             self,
@@ -307,27 +306,20 @@ class DBHandler:
             wertpapierinfo: SchemaWertpapierInfo
     ) -> None:
         """
-       Aktualisiert einen bestehenden wertpapierinfo.
-
-        Input
-        -----
-        wp
-
-        Response
-        --------
-        None
+        Aktualisiert ein Wertpapier (name, isin, ticker, instrument).
         """
         self.cursor.execute("""
             UPDATE wertpapierinfo
             SET name = ?, isin = ?, ticker = ?, instrument = ?
             WHERE id = ?
         """, (
-            wertpapierinfo["name"],
-            wertpapierinfo["isin"],
-            wertpapierinfo["ticker"],
-            wertpapierinfo["instrument"],
-            id
+            wertpapierinfo.name,
+            wertpapierinfo.isin,
+            wertpapierinfo.ticker,
+            wertpapierinfo.instrument,
+            wertpapierinfo.id
         ))
+        self.conn.commit()
 
     def load_wertpapierinfo(self) -> list[SchemaWertpapierInfo]:
         """
@@ -367,8 +359,8 @@ class DBHandler:
             VALUES (?, ?, ?)
         """, (
             kurs.aktien_id,
-            kurs.kurs,
-            kurs.datum
+            _num(kurs.kurs),
+            _dt(kurs.datum)
         ))
 
     def load_kurs(self) -> list[SchemaAktienKurs]:
@@ -411,11 +403,11 @@ class DBHandler:
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
             kontobewegung.name,
-            kontobewegung.betrag,
+            _num(kontobewegung.betrag),
             kontobewegung.kategorie_id,
             kontobewegung.konto_id,
             kontobewegung.type_id,
-            kontobewegung.datum
+            _dt(kontobewegung.datum)
         ))
 
     def load_kontobewegung(self) -> list[SchemaKontobewegung]:
@@ -459,8 +451,8 @@ class DBHandler:
             VALUES (?, ?, ?)
         """, (
             kontostand.konto_id,
-            kontostand.kontostand,
-            kontostand.datum
+            _num(kontostand.kontostand),
+            _dt(kontostand.datum)
         ))
 
     def load_kontostand(self) -> list[SchemaKontostand]:
@@ -508,9 +500,9 @@ class DBHandler:
             depotbewegung.aktien_id,
             depotbewegung.kategorie_id,
             depotbewegung.type_id,
-            depotbewegung.betrag,
-            depotbewegung.anteile,
-            depotbewegung.datum
+            _num(depotbewegung.betrag),
+            _num(depotbewegung.anteile),
+            _dt(depotbewegung.datum)
         ))
 
     def load_depotbewegung(self) -> list[SchemaDepotbewegung]:
@@ -557,11 +549,11 @@ class DBHandler:
         """, (
             depotstand.konto_id,
             depotstand.aktien_id,
-            depotstand.summe_betrag,
-            depotstand.summe_anteil,
-            depotstand.wert,
-            depotstand.entwicklung,
-            depotstand.datum
+            _num(depotstand.summe_betrag),
+            _num(depotstand.summe_anteil),
+            _num(depotstand.wert),
+            _num(depotstand.entwicklung),
+            _dt(depotstand.datum)
         ))
 
     def load_depotstand(self) -> list[SchemaDepotstand]:
@@ -610,14 +602,14 @@ class DBHandler:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             scheduler.name,
-            scheduler.betrag,
-            scheduler.anteil,
+            _num(scheduler.betrag),
+            _num(scheduler.anteil),
             scheduler.aktien_id,
             scheduler.kategorie_id,
             scheduler.ausgangs_konto_id,
             scheduler.eingangs_konto_id,
-            scheduler.start_datum,
-            scheduler.next_due,
+            _dt(scheduler.start_datum),
+            _dt(scheduler.next_due),
             scheduler.active
         ))
 
@@ -675,14 +667,14 @@ class DBHandler:
             WHERE id = ?
         """, (
             scheduler.name,
-            scheduler.betrag,
-            scheduler.anteil,
+            _num(scheduler.betrag),
+            _num(scheduler.anteil),
             scheduler.aktien_id,
             scheduler.kategorie_id,
             scheduler.ausgangs_konto_id,
             scheduler.eingangs_konto_id,
-            scheduler.start_datum,
-            scheduler.next_due,
+            _dt(scheduler.start_datum),
+            _dt(scheduler.next_due),
             scheduler.active,
             scheduler.id
         ))
@@ -712,11 +704,11 @@ class DBHandler:
         """, (
             savings.ausgangs_konto_id,
             savings.kategorie_id,
-            savings.betrag,
-            savings.start_datum,
-            savings.next_due,
-            savings.sparrate_e,
-            savings.sparrate_p,
+            _num(savings.betrag),
+            _dt(savings.start_datum),
+            _dt(savings.next_due),
+            _num(savings.sparrate_e),
+            _num(savings.sparrate_p),
             savings.verwendungszweck
         ))
 
@@ -772,11 +764,11 @@ class DBHandler:
         """, (
             savings.ausgangs_konto_id,
             savings.kategorie_id,
-            savings.betrag,
-            savings.start_datum,
-            savings.next_due,
-            savings.sparrate_e,
-            savings.sparrate_p,
+            _num(savings.betrag),
+            _dt(savings.start_datum),
+            _dt(savings.next_due),
+            _num(savings.sparrate_e),
+            _num(savings.sparrate_p),
             savings.verwendungszweck,
             savings.id
         ))
@@ -804,34 +796,26 @@ class DBHandler:
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             einkauf.name,
-            einkauf.betrag,
+            _num(einkauf.betrag),
             einkauf.kategorie_id,
             einkauf.konto_id,
             einkauf.laden_id,
             einkauf.ausgabentyp_id,
-            einkauf.datum
+            _dt(einkauf.datum)
         ))
 
-    def load_einkauf(self) -> list[SchemaEinkauf]:
+    def load_einkauf(self) -> list[tuple]:
         """
-        Lädt alle Einträge aus der Tabelle einkauf und gibt diese als
-        Liste von Tupeln zurück.
-
-        Input
-        -----
-        None
-
-        Response
-        --------
-        List[Tuple[str, float, int, int, int, int, str]]
-            Liste mit Tupeln (name, betrag, kategorie_id, konto_id,
-            laden_id, ausgabentyp_id, datum) des einkauf
+        Lädt alle Einkäufe.
+        Rückgabe: Liste von Tupeln (id, name, betrag, kategorie_id, konto_id,
+        laden_id, ausgabentyp_id, datum)
         """
-        self.cursor.execute("SELECT name, betrag,  kategorie_id,\
-                            konto_id, laden_id, ausgabentyp_id, datum,\
-                            FROM einkauf")
-        einkauf = self.cursor.fetchall()
-        return einkauf
+        self.cursor.execute("""
+            SELECT id, name, betrag, kategorie_id, konto_id, laden_id,
+                            ausgabentyp_id, datum
+            FROM einkauf
+        """)
+        return self.cursor.fetchall()
 
     def update_einkauf(self, einkauf: SchemaEinkauf) -> None:
         """
@@ -860,11 +844,11 @@ class DBHandler:
             WHERE id = ?
         """, (
             einkauf.name,
-            einkauf.betrag,
+            _num(einkauf.betrag),
             einkauf.kategorie_id,
             einkauf.konto_id,
             einkauf.laden_id,
             einkauf.ausgabentyp_id,
-            einkauf.datum,
+            _dt(einkauf.datum),
             einkauf.id
         ))

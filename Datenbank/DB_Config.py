@@ -138,9 +138,9 @@ def init_db():
         betrag REAL, -- optional
         start_datum TEXT NOT NULL,
         next_due TEXT NOT NULL,
-        Sparrate_e INTEGER,
-        Sparrate_p INTEGER,
-        Verwendungszweck TEXT NOT NULL,
+        sparrate_e INTEGER,
+        sparrate_p INTEGER,
+        verwendungszweck TEXT NOT NULL,
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id)
     )
@@ -176,7 +176,7 @@ def init_db():
         kategorie_id INTEGER,
         konto_id INTEGER,
         laden_id INTEGER,
-        ausgabentyp_id: INTEGER,
+        ausgabentyp_id INTEGER,
         datum TEXT NOT NULL,
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),

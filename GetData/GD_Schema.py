@@ -91,9 +91,9 @@ class SchemaDepotstand:
 @dataclass
 class SchemaSparziel:
     id: Optional[int] = None
-    konto_aus_id: int
+    ausgangs_konto_id: int
     kategorie_id: int
-    summe_betrag: Decimal
+    betrag: Decimal
     start_datum: datetime
     next_due: datetime
     sparrate_e: Decimal
@@ -109,10 +109,10 @@ class SchemaScheduler:
     start_datum: datetime
     next_due: datetime
     active: bool
-    konto_aus_id: Optional[int] = None
-    konto_ein_id: Optional[int] = None
-    wertpapier_id: Optional[int] = None
-    anteile: Optional[Decimal] = None
+    ausgangs_konto_id: Optional[int] = None
+    eingangs_konto_id: Optional[int] = None
+    aktien_id: Optional[int] = None
+    anteil: Optional[Decimal] = None
     betrag: Optional[Decimal] = None
 
 
