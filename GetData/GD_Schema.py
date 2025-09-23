@@ -11,6 +11,12 @@ class SchemaKonto:
 
 
 @dataclass
+class SchemaUser:
+    id: Optional[int] = None
+    name: str
+
+
+@dataclass
 class SchemaKategorie:
     id: Optional[int] = None
     name: str
@@ -48,6 +54,7 @@ class SchemaAktienKurs:
 @dataclass
 class SchemaKontobewegung:
     id: Optional[int] = None
+    user_id: int
     name: str
     betrag: Decimal
     kategorie_id: int
@@ -59,6 +66,7 @@ class SchemaKontobewegung:
 @dataclass
 class SchemaKontostand:
     id: Optional[int] = None
+    user_id: int
     konto_id: int
     kontostand: Decimal
     datum: datetime
@@ -67,6 +75,7 @@ class SchemaKontostand:
 @dataclass
 class SchemaDepotbewegung:
     id: Optional[int] = None
+    user_id: int
     konto_id: int
     aktien_id: int
     kategorie_id: int
@@ -79,6 +88,7 @@ class SchemaDepotbewegung:
 @dataclass
 class SchemaDepotstand:
     id: Optional[int] = None
+    user_id: int
     konto_id: int
     aktien_id: int
     summe_betrag: Decimal
@@ -91,6 +101,7 @@ class SchemaDepotstand:
 @dataclass
 class SchemaSparziel:
     id: Optional[int] = None
+    user_id: int
     ausgangs_konto_id: int
     kategorie_id: int
     betrag: Decimal
@@ -104,6 +115,7 @@ class SchemaSparziel:
 @dataclass
 class SchemaScheduler:
     id: Optional[int] = None
+    user_id: int
     name: str
     kategorie_id: int
     start_datum: datetime
@@ -119,6 +131,7 @@ class SchemaScheduler:
 @dataclass
 class SchemaEinkauf:
     id: Optional[int] = None
+    user_id: int
     name: str
     betrag: Decimal
     kategorie_id: int

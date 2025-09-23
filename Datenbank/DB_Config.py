@@ -22,6 +22,14 @@ def init_db():
     )
     """)
 
+    # Nutzer
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    )
+    """)
+
     # Kategorien
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS kategorien (
@@ -72,12 +80,14 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS kontobewegung (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         name TEXT NOT NULL,
         betrag REAL NOT NULL,
         kategorie_id INTEGER,
         konto_id INTEGER,
         type_id INTEGER,
         datum TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
         FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
@@ -88,9 +98,11 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS kontostand (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         konto_id INTEGER NOT NULL,
         kontostand REAL NOT NULL,
         datum TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id)
     )
     """)
@@ -99,6 +111,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS depotbewegung (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         konto_id INTEGER NOT NULL,
         aktien_id INTEGER NOT NULL,
         kategorie_id INTEGER,
@@ -106,6 +119,7 @@ def init_db():
         betrag REAL NOT NULL,
         anteile REAL NOT NULL,
         datum TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
         FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
@@ -117,6 +131,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS depotstand (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         konto_id INTEGER NOT NULL,
         aktien_id INTEGER NOT NULL,
         summe_betrag REAL NOT NULL,
@@ -124,6 +139,7 @@ def init_db():
         wert REAL NOT NULL,
         entwicklung REAL NOT NULL,
         datum TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
         FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id)
     )
@@ -133,6 +149,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS savings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         ausgangs_konto_id INTEGER,
         kategorie_id INTEGER,
         betrag REAL, -- optional
@@ -141,6 +158,7 @@ def init_db():
         sparrate_e INTEGER,
         sparrate_p INTEGER,
         verwendungszweck TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id)
     )
@@ -150,6 +168,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS scheduler (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         name TEXT NOT NULL,
         betrag REAL, -- optional
         anteil REAL, -- optional
@@ -160,6 +179,7 @@ def init_db():
         start_datum TEXT NOT NULL,
         next_due TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0,1)),
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
@@ -171,6 +191,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS einkauf (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         name TEXT NOT NULL,
         betrag REAL, -- optional
         kategorie_id INTEGER,
@@ -178,6 +199,7 @@ def init_db():
         laden_id INTEGER,
         ausgabentyp_id INTEGER,
         datum TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
         FOREIGN KEY (laden_id) REFERENCES laden(id)

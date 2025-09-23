@@ -2,7 +2,8 @@ from Datenbank.DB_Config import get_connection
 from GetData.GD_Schema import SchemaEinkauf, SchemaScheduler, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
-    SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel
+    SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
+    SchemaUser
 from decimal import Decimal
 from datetime import datetime
 
@@ -102,6 +103,44 @@ class DBHandler:
             laden.name,
             laden.id
         ))
+
+    def insert_user(self, user: SchemaUser) -> SchemaUser:
+        """
+        Fügt ein neuen User in die Tabelle user ein.
+
+        Input
+        -----
+        user: Ein Objekt mit Attribut
+            'name'
+
+        Response
+        --------
+        None
+        """
+        self.cursor.execute("""
+            INSERT INTO user (name)
+            VALUES (?)
+        """, (
+            user.name,
+        ))
+
+    def load_user(self) -> list[SchemaUser]:
+        """
+        Lädt alle Einträge aus der Tabelle user und gibt diese als Liste von
+        Tupeln zurück.
+
+        Input
+        -----
+        None
+
+        Response
+        --------
+        List[Tuple[int, str]]
+            Liste mit Tupeln (id, name) der User
+        """
+        self.cursor.execute("SELECT id, name FROM user")
+        user = self.cursor.fetchall()
+        return user
 
     def insert_konto(self, konto: SchemaKonto) -> SchemaKonto:
         """
@@ -391,7 +430,8 @@ class DBHandler:
         Input
         -----
         kontobewegung: Ein Objekt mit Attributen
-            'name', 'betrag', 'kategorie_id', 'konto_id', 'type_id', 'datum'
+            'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id', 'type_id',
+            'datum'
 
         Response
         --------
@@ -399,9 +439,11 @@ class DBHandler:
         """
         self.cursor.execute("""
             INSERT INTO kontobewegung (
-                    name, betrag, kategorie_id, konto_id, type_id, datum)
-            VALUES (?, ?, ?, ?, ?, ?)
+                    user_id, name, betrag, kategorie_id, konto_id, type_id,
+                    datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
+            kontobewegung.user_id,
             kontobewegung.name,
             _num(kontobewegung.betrag),
             kontobewegung.kategorie_id,
@@ -421,12 +463,12 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, str, float, int, int, int, str]]
-            Liste mit Tupeln (id, name, betrag, kategorie_id, konto_id,
-            type_id, datum) der kontobewegung
+        List[Tuple[int, int, str, float, int, int, int, str]]
+            Liste mit Tupeln (id, user_id, name, betrag, kategorie_id,
+            konto_id, type_id, datum) der kontobewegung
         """
-        self.cursor.execute("SELECT id, name, betrag, kategorie_id, konto_id,\
-                            type_id, datum FROM kontobewegung")
+        self.cursor.execute("SELECT id, user_id, name, betrag, kategorie_id,\
+                            konto_id, type_id, datum FROM kontobewegung")
         kontobewegung = self.cursor.fetchall()
         return kontobewegung
 
@@ -440,16 +482,17 @@ class DBHandler:
         Input
         -----
         kontostand: Ein Objekt mit Attribut
-            'konto_id', 'kontostand', 'datum'
+            'user_id', 'konto_id', 'kontostand', 'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO kontostand (konto_id, kontostand, datum)
-            VALUES (?, ?, ?)
+            INSERT INTO kontostand (user_id, konto_id, kontostand, datum)
+            VALUES (?, ?, ?, ?)
         """, (
+            kontostand.user_id,
             kontostand.konto_id,
             _num(kontostand.kontostand),
             _dt(kontostand.datum)
@@ -466,10 +509,11 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, float, str]]
-            Liste mit Tupeln (id, konto_id, kontostand, datum) des kontostand
+        List[Tuple[int, int, int, float, str]]
+            Liste mit Tupeln (id, user_id, konto_id, kontostand, datum) des
+            kontostand
         """
-        self.cursor.execute("SELECT id, konto_id, kontostand, datum\
+        self.cursor.execute("SELECT id, user_id, konto_id, kontostand, datum\
                             FROM kontostand")
         kontostand = self.cursor.fetchall()
         return kontostand
@@ -484,18 +528,19 @@ class DBHandler:
         Input
         -----
         depotbewegung: Ein Objekt mit Attribut
-            'konto_id', 'aktien_id', 'kategorie_id', 'type_id', 'betrag',
-            'anteile', 'datum'
+            'user_id', 'konto_id', 'aktien_id', 'kategorie_id', 'type_id',
+            'betrag', 'anteile', 'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO depotbewegung (konto_id, aktien_id, kategorie_id,
-                    type_id, betrag, anteile, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO depotbewegung (user_id, konto_id, aktien_id,
+                    kategorie_id, type_id, betrag, anteile, datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            depotbewegung.user_id,
             depotbewegung.konto_id,
             depotbewegung.aktien_id,
             depotbewegung.kategorie_id,
@@ -516,12 +561,13 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, int, int, int float, float, str]]
-            Liste mit Tupeln (konto_id, aktien_id, kategorie_id,
+        List[Tuple[int, int, int, int, int, int float, float, str]]
+            Liste mit Tupeln (user_id, konto_id, aktien_id, kategorie_id,
                     type_id, betrag, anteile, datum) des depotbewegung
         """
-        self.cursor.execute("SELECT id, konto_id, aktien_id, kategorie_id,\
-                    type_id, betrag, anteile, datum FROM depotbewegung")
+        self.cursor.execute("SELECT id, user_id, konto_id, aktien_id,\
+                             kategorie_id, type_id, betrag, anteile,\
+                            datum FROM depotbewegung")
         depotbewegung = self.cursor.fetchall()
         return depotbewegung
 
@@ -535,7 +581,7 @@ class DBHandler:
         Input
         -----
         depotstand: Ein Objekt mit Attribut
-            'konto_id', 'aktien_id', 'summe_betrag', 'summe_anteil',
+            'user_id', 'konto_id', 'aktien_id', 'summe_betrag', 'summe_anteil',
              'wert', 'entwicklung', 'datum'
 
         Response
@@ -543,10 +589,12 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO depotstand (konto_id, aktien_id, summe_betrag,\
-                            summe_anteil, wert, entwicklung, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO depotstand (user_id, konto_id, aktien_id,\
+                            summe_betrag, summe_anteil, wert, entwicklung,\
+                            datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            depotstand.user_id,
             depotstand.konto_id,
             depotstand.aktien_id,
             _num(depotstand.summe_betrag),
@@ -567,13 +615,13 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, int, float, float, float, float, str]]
-            Liste mit Tupeln (id, konto_id, aktien_id, summe_betrag,
+        List[Tuple[int, int, int, int, float, float, float, float, str]]
+            Liste mit Tupeln (id, user_id, konto_id, aktien_id, summe_betrag,
             summe_anteil, wert, entwicklung, datum) des depotstand
         """
-        self.cursor.execute("SELECT id, konto_id, aktien_id, summe_betrag,\
-                            summe_anteil, wert, entwicklung, datum\
-                            FROM depotstand")
+        self.cursor.execute("SELECT id, user_id, konto_id, aktien_id,\
+                            summe_betrag, summe_anteil, wert, entwicklung,\
+                             datum FROM depotstand")
         depotstand = self.cursor.fetchall()
         return depotstand
 
@@ -587,7 +635,7 @@ class DBHandler:
         Input
         -----
         scheduler: Ein Objekt mit Attribut
-            'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
+            'user_id', 'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
             'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
             'next_due', 'active'
 
@@ -596,11 +644,12 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO scheduler (name, betrag, anteil, aktien_id,
+            INSERT INTO scheduler (user_id, name, betrag, anteil, aktien_id,
                             kategorie_id, ausgangs_konto_id,
                             eingangs_konto_id,start_datum, next_due, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            scheduler.user_id,
             scheduler.name,
             _num(scheduler.betrag),
             _num(scheduler.anteil),
@@ -624,13 +673,13 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, int, float, float, float, float, str]]
-            Liste mit Tupeln (id, name, betrag, anteil, aktien_id,
+        List[Tuple[int, int, int, int, float, float, float, float, str]]
+            Liste mit Tupeln (id, user_id, name, betrag, anteil, aktien_id,
             kategorie_id, ausgangs_konto_id, eingangs_konto_id, start_datum,
             next_due, active) des scheduler
         """
-        self.cursor.execute("SELECT id, name, betrag, anteil, aktien_id,\
-                            kategorie_id, ausgangs_konto_id,\
+        self.cursor.execute("SELECT id, user_id, name, betrag, anteil,\
+                            aktien_id, kategorie_id, ausgangs_konto_id,\
                             eingangs_konto_id, start_datum, next_due, active\
                             FROM scheduler")
         scheduler = self.cursor.fetchall()
@@ -644,9 +693,9 @@ class DBHandler:
         Input
         -----
         scheduler: Ein Objekt mit Attributen
-            'id', 'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
-            'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
-            'next_due', 'active'
+            'id', 'user_id', 'name', 'betrag', 'anteil', 'aktien_id',
+            'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
+            'start_datum', 'next_due', 'active'
 
         Response
         --------
@@ -654,7 +703,8 @@ class DBHandler:
         """
         self.cursor.execute("""
             UPDATE scheduler
-            SET name = ?,
+            SET user_id = ?,
+                name = ?,
                 betrag = ?,
                 anteil = ?,
                 aktien_id = ?,
@@ -666,6 +716,7 @@ class DBHandler:
                 active = ?
             WHERE id = ?
         """, (
+            scheduler.user_id,
             scheduler.name,
             _num(scheduler.betrag),
             _num(scheduler.anteil),
@@ -689,19 +740,21 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attribut
-            'ausgangs_konto_id', 'kategorie_id', 'betrag', 'start_datum',
-            'next_due', 'sparrate_e', 'sparrate_p', 'verwendungszweck'
+            'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
+            'start_datum', 'next_due', 'sparrate_e', 'sparrate_p',
+            'verwendungszweck'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO savings (ausgangs_konto_id, kategorie_id,  betrag,
-                            start_datum, next_due, sparrate_e, sparrate_p,
-                            verwendungszweck)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO savings (user_id, ausgangs_konto_id, kategorie_id,
+                            betrag, start_datum, next_due, sparrate_e,
+                            sparrate_p, verwendungszweck)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            savings.user_id,
             savings.ausgangs_konto_id,
             savings.kategorie_id,
             _num(savings.betrag),
@@ -723,14 +776,14 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, float, str, str, float, float, str]]
-            Liste mit Tupeln (ausgangs_konto_id, kategorie_id,  betrag,
+        List[Tuple[int, int, int, float, str, str, float, float, str]]
+            Liste mit Tupeln (user_id, ausgangs_konto_id, kategorie_id, betrag,
             start_datum, next_due, sparrate_e, sparrate_p,
             verwendungszweck) des savings
         """
-        self.cursor.execute("SELECT ausgangs_konto_id, kategorie_id,  betrag,\
-                            start_datum, next_due, sparrate_e, sparrate_p,\
-                            verwendungszweck\
+        self.cursor.execute("SELECT user_id, ausgangs_konto_id, kategorie_id,\
+                            betrag, start_datum, next_due, sparrate_e,\
+                            sparrate_p, verwendungszweck\
                             FROM savings")
         savings = self.cursor.fetchall()
         return savings
@@ -743,8 +796,9 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attributen
-            'ausgangs_konto_id', 'kategorie_id', 'betrag', 'start_datum',
-            'next_due', 'sparrate_e', 'sparrate_p', 'verwendungszweck'
+            'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
+            'start_datum', 'next_due', 'sparrate_e', 'sparrate_p',
+            'verwendungszweck'
 
         Response
         --------
@@ -752,7 +806,8 @@ class DBHandler:
         """
         self.cursor.execute("""
             UPDATE savings
-            SET ausgangs_konto_id = ?,
+            SET user_id = ?,
+                ausgangs_konto_id = ?,
                 kategorie_id = ?,
                 betrag = ?,
                 start_datum = ?,
@@ -762,6 +817,7 @@ class DBHandler:
                 verwendungszweck = ?
             WHERE id = ?
         """, (
+            savings.user_id,
             savings.ausgangs_konto_id,
             savings.kategorie_id,
             _num(savings.betrag),
@@ -783,18 +839,19 @@ class DBHandler:
         Input
         -----
         einkauf: Ein Objekt mit Attribut
-            'name', 'betrag', 'kategorie_id', 'konto_id', 'laden_id',
-            'ausgabentyp_id', 'datum'
+            'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
+            'laden_id', 'ausgabentyp_id', 'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO einkauf (name, betrag, kategorie_id, konto_id,
+            INSERT INTO einkauf (user_id, name, betrag, kategorie_id, konto_id,
                             laden_id, ausgabentyp_id, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            einkauf.user_id,
             einkauf.name,
             _num(einkauf.betrag),
             einkauf.kategorie_id,
@@ -807,11 +864,11 @@ class DBHandler:
     def load_einkauf(self) -> list[tuple]:
         """
         Lädt alle Einkäufe.
-        Rückgabe: Liste von Tupeln (id, name, betrag, kategorie_id, konto_id,
-        laden_id, ausgabentyp_id, datum)
+        Rückgabe: Liste von Tupeln (id, user_id, name, betrag, kategorie_id,
+        konto_id, laden_id, ausgabentyp_id, datum)
         """
         self.cursor.execute("""
-            SELECT id, name, betrag, kategorie_id, konto_id, laden_id,
+            SELECT id, user_id, name, betrag, kategorie_id, konto_id, laden_id,
                             ausgabentyp_id, datum
             FROM einkauf
         """)
@@ -825,8 +882,8 @@ class DBHandler:
         Input
         -----
         einkauf: Ein Objekt mit Attributen
-            'name', 'betrag', 'kategorie_id', 'konto_id', 'laden_id',
-            'ausgabentyp_id', 'datum'
+            'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
+            'laden_id', 'ausgabentyp_id', 'datum'
 
         Response
         --------
@@ -834,7 +891,8 @@ class DBHandler:
         """
         self.cursor.execute("""
             UPDATE einkauf
-            SET name = ?,
+            SET user_id = ?,
+                name = ?,
                 betrag = ?,
                 kategorie_id = ?,
                 konto_id = ?,
@@ -843,6 +901,7 @@ class DBHandler:
                 datum = ?
             WHERE id = ?
         """, (
+            einkauf.user_id,
             einkauf.name,
             _num(einkauf.betrag),
             einkauf.kategorie_id,
