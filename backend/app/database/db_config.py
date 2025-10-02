@@ -1,9 +1,13 @@
-import os
 import sqlite3
+from pathlib import Path
+
+
+base_dir = Path(__file__).resolve().parent.parent
+db_path = base_dir / "data" / "finance_tracker.db"
 
 
 def get_connection():
-    db_path = os.path.join(os.path.dirname(__file__), "finance_tracker.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -202,7 +206,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (laden_id) REFERENCES laden(id)
+        FOREIGN KEY (laden_id) REFERENCES laden(id),
         FOREIGN KEY (ausgabentyp_id) REFERENCES ausgabentypen(id)
     )
     """)

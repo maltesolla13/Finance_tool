@@ -1,5 +1,5 @@
 from decimal import Decimal
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
