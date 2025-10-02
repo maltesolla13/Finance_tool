@@ -1,5 +1,5 @@
-from Datenbank.DB_Config import get_connection
-from GetData.GD_Schema import SchemaEinkauf, SchemaScheduler, \
+from database.db_config import get_connection
+from backend.app.models.schema import SchemaEinkauf, SchemaScheduler, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
