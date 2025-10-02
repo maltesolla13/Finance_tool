@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from typing import List, Callable, Any
 from types import SimpleNamespace
-from app.database.db_handling import DBHandler
-from app.models.schema import SchemaKonto, SchemaUser
+from backend.app.database.db_handling import DBHandler
+from backend.app.models.schema import SchemaKonto, SchemaUser
 
 
-class BackendRouts:
+class BackendRoutes:
 
     def __init__(self) -> None:
         self.router = APIRouter()

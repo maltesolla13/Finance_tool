@@ -1,4 +1,4 @@
-from database.db_config import get_connection
+from backend.app.database.db_config import get_connection
 from backend.app.models.schema import SchemaEinkauf, SchemaScheduler, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \

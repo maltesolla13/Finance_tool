@@ -6,54 +6,53 @@ from typing import Optional
 
 @dataclass
 class SchemaKonto:
-    id: Optional[int] = None
     name: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaUser:
-    id: Optional[int] = None
     name: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaKategorie:
-    id: Optional[int] = None
     name: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaAusgabentyp:
-    id: Optional[int] = None
     name: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaLaden:
-    id: Optional[int] = None
     name: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaWertpapierInfo:
-    id:    Optional[int] = None
     name: str
     isin: str
     ticker: str  # (stock, etf, crypto)
     instrument: str
+    id:    Optional[int] = None
 
 
 @dataclass
 class SchemaAktienKurs:
-    id: Optional[int] = None
     aktien_id: int
     kurs: Decimal
     datum: datetime
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaKontobewegung:
-    id: Optional[int] = None
     user_id: int
     name: str
     betrag: Decimal
@@ -61,20 +60,20 @@ class SchemaKontobewegung:
     konto_id: int
     type_id: int
     datum: datetime
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaKontostand:
-    id: Optional[int] = None
     user_id: int
     konto_id: int
     kontostand: Decimal
     datum: datetime
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaDepotbewegung:
-    id: Optional[int] = None
     user_id: int
     konto_id: int
     aktien_id: int
@@ -83,11 +82,11 @@ class SchemaDepotbewegung:
     betrag: Decimal
     anteile: Decimal
     datum: datetime
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaDepotstand:
-    id: Optional[int] = None
     user_id: int
     konto_id: int
     aktien_id: int
@@ -96,11 +95,11 @@ class SchemaDepotstand:
     wert: Decimal
     entwicklung: Decimal
     datum: datetime
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaSparziel:
-    id: Optional[int] = None
     user_id: int
     ausgangs_konto_id: int
     kategorie_id: int
@@ -110,17 +109,18 @@ class SchemaSparziel:
     sparrate_e: Decimal
     sparrate_p: Decimal
     verwendungszweck: str
+    id: Optional[int] = None
 
 
 @dataclass
 class SchemaScheduler:
-    id: Optional[int] = None
     user_id: int
     name: str
     kategorie_id: int
     start_datum: datetime
     next_due: datetime
     active: bool
+    id: Optional[int] = None
     ausgangs_konto_id: Optional[int] = None
     eingangs_konto_id: Optional[int] = None
     aktien_id: Optional[int] = None
@@ -130,7 +130,6 @@ class SchemaScheduler:
 
 @dataclass
 class SchemaEinkauf:
-    id: Optional[int] = None
     user_id: int
     name: str
     betrag: Decimal
@@ -139,3 +138,4 @@ class SchemaEinkauf:
     laden_id: int
     ausgabentyp_id: int
     datum: datetime
+    id: Optional[int] = None
