@@ -1,6 +1,21 @@
 import { ColorModeContext, useMode } from "./theme";
 import { CssBaseline, ThemeProvider } from "@mui/material";
+import { Routes, Route } from "react-router-dom";
 import Topbar from "./scenes/global/Topbar";
+import Sidebar from "./scenes/global/Sidebar";
+import Dashboard from "./scenes/dashboard";
+// import InputHome from "./scenes/input/home";
+// import AddAccount from "./scenes/input/addaccount";
+// import AddStock from "./scenes/input/addstock";
+// import AddFixedCosts from "./scenes/input/addfixedcosts";
+
+// import Portfolio from "./scenes/portfolio/home";
+// import Perfomrance from "./scenes/portfolio/performance";
+// import Development from "./scenes/portfolio/development";
+
+// import Account from "./scenes/account/home";
+// import MonthlyCost from "./scenes/monthlycost/home";
+// import Distribution from "./scenes/distribution/home";
 
 function App() {
   const [theme, colorMode] = useMode();
@@ -10,8 +25,20 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div className="app">
+          <Sidebar />
           <main className="content">
             <Topbar />
+            <Routes>
+              {/* <Route path="/" element={<Dashboard/>}/> */}
+              {/* <Route path="/forms" element={<Input/>}/> */}
+              {/* <Route path="/addaccount" element={<AddAccount/>} */}
+              {/* <Route path="/addstock" element={<AddStock/>} */}
+              {/* <Route path="/addfixedcosts" element={<AddFixedCosts/>} */}
+              {/* <Route path="/accounts" element={<Account/>}/> */}
+              {/* <Route path="/portfolio" element={<Portfolio/>}/> */}
+              {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> */}
+              {/* <Route path="/savings" element={<Distribution/>}/> */}
+            </Routes>
           </main>
         </div>
       </ThemeProvider>
