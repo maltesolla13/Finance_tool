@@ -3,17 +3,18 @@ import {
   Sidebar as ProSidebar,
   Menu,
   MenuItem,
+  SubMenu,
   sidebarClasses,
 } from "react-pro-sidebar";
 import { Box, IconButton, Typography, useTheme } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined"; //Eingabe
 import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined"; //User
 import AddCardOutlinedIcon from "@mui/icons-material/AddCardOutlined"; //Konto
-import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined"; //Einkauf
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined"; //Einkauf
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined"; //Fixkosten
 import AddCircleOutlineOutlinedIcon from "@mui/icons-material/AddCircleOutlineOutlined"; //Wertpapier
 
@@ -49,8 +50,11 @@ const Sidebar = () => {
   const colors = tokens(theme.palette.mode);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selected, setSelected] = useState("Dashboard");
+  const { pathname } = useLocation();
   const HOVER = "#868dfb";
   const ACTIVE = "#6870fa";
+  // small helper
+  const isOn = (path) => pathname === path || pathname.startsWith(path + "/");
 
   return (
     <Box>
@@ -60,7 +64,6 @@ const Sidebar = () => {
         rootStyles={{
           height: "100vh",
           [`.${sidebarClasses.container}`]: {
-            // <= der sichtbare Bereich
             backgroundColor: colors.primary[400],
             color: colors.grey[100],
           },
@@ -77,7 +80,9 @@ const Sidebar = () => {
                 color: HOVER,
               },
             }),
-            // wichtig: Icon & Label erben die Button-Farbe
+            subMenuContent: () => ({
+              backgroundColor: colors.primary[800],
+            }),
             icon: { color: "inherit", backgroundColor: "transparent" },
             label: { color: "inherit" },
           }}
@@ -139,6 +144,7 @@ const Sidebar = () => {
 
           {/* MENU ITEMS */}
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
+            {/* Dashboard */}
             <Item
               title="Dashboard"
               to="/"
@@ -146,13 +152,51 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
-            <Item
-              title="Forms"
-              to="/forms"
+
+            {/* FORMS */}
+            <SubMenu
+              label="Forms"
               icon={<CreateOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
+              defaultOpen={isOn("/forms")}
+            >
+              <Item
+                title="Add new User"
+                to="/forms/user"
+                icon={<PersonAddOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              <Item
+                title="Add new Account"
+                to="/forms/account"
+                icon={<AddCardOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              <Item
+                title="Add new Receipt"
+                to="/forms/receipt"
+                icon={<ReceiptLongOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              <Item
+                title="Add Monthly Costs"
+                to="/forms/monthlycosts"
+                icon={<PaymentsOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              <Item
+                title="Add new Securities"
+                to="/forms/securities"
+                icon={<AddCircleOutlineOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+            </SubMenu>
+
+            {/* ACCOUNTS */}
             <Item
               title="Accounts"
               to="/accounts"
