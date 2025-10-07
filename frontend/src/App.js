@@ -5,7 +5,8 @@ import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
 // import InputHome from "./scenes/input/home";
-// import AddAccount from "./scenes/input/addaccount";
+import AddAccount from "./scenes/forms/addaccounts";
+import AddUser from "./scenes/forms/adduser";
 // import AddStock from "./scenes/input/addstock";
 // import AddFixedCosts from "./scenes/input/addfixedcosts";
 
@@ -29,15 +30,16 @@ function App() {
           <main className="content">
             <Topbar />
             <Routes>
-              {/* <Route path="/" element={<Dashboard/>}/> */}
+              <Route path="/" element={<Dashboard />} />
               {/* <Route path="/forms" element={<Input/>}/> */}
-              {/* <Route path="/addaccount" element={<AddAccount/>} */}
-              {/* <Route path="/addstock" element={<AddStock/>} */}
-              {/* <Route path="/addfixedcosts" element={<AddFixedCosts/>} */}
-              {/* <Route path="/accounts" element={<Account/>}/> */}
-              {/* <Route path="/portfolio" element={<Portfolio/>}/> */}
-              {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> */}
-              {/* <Route path="/savings" element={<Distribution/>}/> */}
+              <Route path="/forms/adduser" element={<AddUser />} />
+              <Route path="/forms/addaccount" element={<AddAccount />} />
+              {/* <Route path="/addstock" element={<AddStock/>} />*/}
+              {/* <Route path="/addfixedcosts" element={<AddFixedCosts/>} />*/}
+              {/* <Route path="/accounts" element={<Account/>}/> />*/}
+              {/* <Route path="/portfolio" element={<Portfolio/>}/> />*/}
+              {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> />*/}
+              {/* <Route path="/savings" element={<Distribution/>}/> />*/}
             </Routes>
           </main>
         </div>

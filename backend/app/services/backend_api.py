@@ -27,7 +27,7 @@ class BackendRoutes:
         # GET /{name}
         @r.get("", response_model=List[dto_out])
         def list_items(_list_fn=list_fn):
-            return _list_fn
+            return _list_fn()
 
         # POST /{name}
         @r.post("", status_code=201)
@@ -60,7 +60,7 @@ class BackendRoutes:
                 return [SchemaKonto(id=row["id"], name=row["name"])
                         for row in rows]
             finally:
-                db.close
+                db.close()
 
         def create_konto(payload: SchemaKonto) -> None:
             db = DBHandler()
