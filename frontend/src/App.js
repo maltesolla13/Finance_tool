@@ -7,8 +7,8 @@ import Dashboard from "./scenes/dashboard";
 // import InputHome from "./scenes/input/home";
 import AddAccount from "./scenes/forms/addaccounts";
 import AddUser from "./scenes/forms/adduser";
-// import AddStock from "./scenes/input/addstock";
-// import AddFixedCosts from "./scenes/input/addfixedcosts";
+// import AddStock from "./scenes/forms/addstock";
+import AddMonthlyCosts from "./scenes/forms/addmonthlycosts";
 
 // import Portfolio from "./scenes/portfolio/home";
 // import Perfomrance from "./scenes/portfolio/performance";
@@ -34,8 +34,11 @@ function App() {
               {/* <Route path="/forms" element={<Input/>}/> */}
               <Route path="/forms/adduser" element={<AddUser />} />
               <Route path="/forms/addaccount" element={<AddAccount />} />
-              {/* <Route path="/addstock" element={<AddStock/>} />*/}
-              {/* <Route path="/addfixedcosts" element={<AddFixedCosts/>} />*/}
+              {/* <Route path="/forms/addstock" element={<AddStock/>} />*/}
+              <Route
+                path="/forms/addmonthlycosts"
+                element={<AddMonthlyCosts />}
+              />
               {/* <Route path="/accounts" element={<Account/>}/> />*/}
               {/* <Route path="/portfolio" element={<Portfolio/>}/> />*/}
               {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> />*/}

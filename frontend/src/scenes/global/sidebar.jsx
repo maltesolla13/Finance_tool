@@ -182,7 +182,7 @@ const Sidebar = () => {
               />
               <Item
                 title="Add Monthly Costs"
-                to="/forms/monthlycosts"
+                to="/forms/addmonthlycosts"
                 icon={<PaymentsOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
