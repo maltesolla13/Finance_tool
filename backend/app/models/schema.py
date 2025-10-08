@@ -5,6 +5,12 @@ from typing import Optional
 
 
 @dataclass
+class SchemaOption:
+    id: int
+    name: str
+
+
+@dataclass
 class SchemaKonto:
     name: str
     id: Optional[int] = None

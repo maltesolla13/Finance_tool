@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
-    SchemaUser, SchemaMonthlyCosts, SchemaEinkauf, SchemaKategorie
+    SchemaUser, SchemaMonthlyCosts, SchemaEinkauf, SchemaKategorie, \
+    SchemaOption
 
 
 class BackendRoutes:
@@ -53,6 +55,79 @@ class BackendRoutes:
         self.router.include_router(r)
 
     def request_handling(self) -> None:
+        opt_router = APIRouter(prefix="/options", tags=["Options"])
+        self.router.include_router(opt_router)
+
+        @opt_router.get("", response_model=List[SchemaOption])
+        def get_options(
+            entity: str = Query(
+                ..., description="users|konten|kategorien|laden|ausgabentypen"
+            ),
+            q: str = Query("", description="Filter-Text (optional)")
+        ):
+            table_map = {
+                "users": "user",
+                "konten": "konten",
+                "kategorien": "kategorien",
+                "laden": "laden",
+                "ausgabentypen": "ausgabentypen",
+            }
+            table = table_map.get(entity)
+            if not table:
+                raise HTTPException(status_code=400, detail="Unknown entity")
+
+            db = DBHandler()
+            try:
+                if q:
+                    rows = db.cursor.execute(
+                        f"SELECT id, name FROM {table} "
+                        "WHERE name LIKE ? COLLATE NOCASE "
+                        "ORDER BY name LIMIT 50",
+                        (f"%{q}%",)
+                    ).fetchall()
+                else:
+                    rows = db.cursor.execute(
+                        f"SELECT id, name FROM {table} ORDER BY name LIMIT 50"
+                    ).fetchall()
+                return [SchemaOption(id=r["id"], name=r["name"]) for r in rows]
+            finally:
+                db.close()
+
+        class EnsureIn(BaseModel):
+            entity: str
+            name: str
+
+        @opt_router.post(
+                "/ensure",
+                response_model=SchemaOption,
+                status_code=201)
+        def ensure_option(payload: EnsureIn):
+            if payload.entity != "kategorien":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only 'kategorien' allowed")
+
+            name = payload.name.strip()
+            if not name:
+                raise HTTPException(status_code=400, detail="Name required")
+
+            db = DBHandler()
+            try:
+                row = db.cursor.execute(
+                    "SELECT id, name FROM kategorien WHERE name = ?", (name,)
+                ).fetchone()
+                if row:
+                    return SchemaOption(id=row["id"], name=row["name"])
+
+                db.cursor.execute(
+                    "INSERT INTO kategorien(name) VALUES (?)",
+                    (name,))
+                new_id = db.cursor.lastrowid
+                db.conn.commit()
+                return SchemaOption(id=new_id, name=name)
+            finally:
+                db.close()
+
         # ---- Konto ----
         def get_konto() -> List[SchemaKonto]:
             db = DBHandler()
@@ -138,33 +213,33 @@ class BackendRoutes:
                 db.close()
 
         # ---- Kategorien ----
-        def get_kategorie() -> List[SchemaKategorie]:
+        def get_kategorien() -> List[SchemaKategorie]:
             db = DBHandler()
             try:
                 rows = db.cursor.execute(
-                    "SELECT id, name FROM kategorie ORDER BY id").fetchall()
+                    "SELECT id, name FROM kategorien ORDER BY id").fetchall()
                 return [SchemaKategorie(
                     id=r["id"],
                     name=r["name"]) for r in rows]
             finally:
                 db.close()
 
-        def create_kategorie(payload: SchemaKategorie) -> None:
+        def create_kategorien(payload: SchemaKategorie) -> None:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "INSERT INTO kategorie(name) VALUES (?)", (payload.name,))
+                    "INSERT INTO kategorien(name) VALUES (?)", (payload.name,))
                 db.conn.commit()
             finally:
                 db.close()
 
-        def update_kategorie(
+        def update_kategorien(
                 kategorie_id: int,
                 payload: SchemaKategorie) -> None:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "UPDATE kategorie SET name=? WHERE id=?",
+                    "UPDATE kategorien SET name=? WHERE id=?",
                     (payload.name, kategorie_id))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
@@ -173,11 +248,11 @@ class BackendRoutes:
             finally:
                 db.close()
 
-        def delete_kategorie(kategorie_id: int) -> None:
+        def delete_kategorien(kategorie_id: int) -> None:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "DELETE FROM kategorie WHERE id=?",
+                    "DELETE FROM kategorien WHERE id=?",
                     (kategorie_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
