@@ -1,5 +1,5 @@
 from backend.app.database.db_config import get_connection
-from backend.app.models.schema import SchemaEinkauf, SchemaScheduler, \
+from backend.app.models.schema import SchemaEinkauf, SchemaMonthlyCosts, \
     SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
@@ -625,16 +625,16 @@ class DBHandler:
         depotstand = self.cursor.fetchall()
         return depotstand
 
-    def insert_scheduler(
+    def insert_monthlycosts(
             self,
-            scheduler: SchemaScheduler
-    ) -> SchemaScheduler:
+            monthlycosts: SchemaMonthlyCosts
+    ) -> SchemaMonthlyCosts:
         """
-        Fügt eine neue scheduler Eintrag in die Tabelle scheduler ein.
+        Fügt eine neue monthlycosts Eintrag in die Tabelle monthlycosts ein.
 
         Input
         -----
-        scheduler: Ein Objekt mit Attribut
+        monthlycosts: Ein Objekt mit Attribut
             'user_id', 'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
             'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
             'next_due', 'active'
@@ -644,27 +644,27 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO scheduler (user_id, name, betrag, anteil, aktien_id,
+            INSERT INTO monthlycosts (user_id, name, betrag, anteil, aktien_id,
                             kategorie_id, ausgangs_konto_id,
                             eingangs_konto_id,start_datum, next_due, active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            scheduler.user_id,
-            scheduler.name,
-            _num(scheduler.betrag),
-            _num(scheduler.anteil),
-            scheduler.aktien_id,
-            scheduler.kategorie_id,
-            scheduler.ausgangs_konto_id,
-            scheduler.eingangs_konto_id,
-            _dt(scheduler.start_datum),
-            _dt(scheduler.next_due),
-            scheduler.active
+            monthlycosts.user_id,
+            monthlycosts.name,
+            _num(monthlycosts.betrag),
+            _num(monthlycosts.anteil),
+            monthlycosts.aktien_id,
+            monthlycosts.kategorie_id,
+            monthlycosts.ausgangs_konto_id,
+            monthlycosts.eingangs_konto_id,
+            _dt(monthlycosts.start_datum),
+            _dt(monthlycosts.next_due),
+            monthlycosts.active
         ))
 
-    def load_scheduler(self) -> list[SchemaScheduler]:
+    def load_monthlycosts(self) -> list[SchemaMonthlyCosts]:
         """
-        Lädt alle Einträge aus der Tabelle scheduler und gibt diese als
+        Lädt alle Einträge aus der Tabelle monthlycosts und gibt diese als
         Liste von Tupeln zurück.
 
         Input
@@ -676,23 +676,23 @@ class DBHandler:
         List[Tuple[int, int, int, int, float, float, float, float, str]]
             Liste mit Tupeln (id, user_id, name, betrag, anteil, aktien_id,
             kategorie_id, ausgangs_konto_id, eingangs_konto_id, start_datum,
-            next_due, active) des scheduler
+            next_due, active) des monthlycosts
         """
         self.cursor.execute("SELECT id, user_id, name, betrag, anteil,\
                             aktien_id, kategorie_id, ausgangs_konto_id,\
                             eingangs_konto_id, start_datum, next_due, active\
-                            FROM scheduler")
-        scheduler = self.cursor.fetchall()
-        return scheduler
+                            FROM monthlycosts")
+        monthlycosts = self.cursor.fetchall()
+        return monthlycosts
 
-    def update_scheduler(self, scheduler: SchemaScheduler) -> None:
+    def update_monthlycosts(self, monthlycosts: SchemaMonthlyCosts) -> None:
         """
-        Aktualisiert einen bestehenden Scheduler-Eintrag in der Tabelle
-        scheduler.
+        Aktualisiert einen bestehenden monthlycosts-Eintrag in der Tabelle
+        monthlycosts.
 
         Input
         -----
-        scheduler: Ein Objekt mit Attributen
+        monthlycosts: Ein Objekt mit Attributen
             'id', 'user_id', 'name', 'betrag', 'anteil', 'aktien_id',
             'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
             'start_datum', 'next_due', 'active'
@@ -702,7 +702,7 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            UPDATE scheduler
+            UPDATE monthlycosts
             SET user_id = ?,
                 name = ?,
                 betrag = ?,
@@ -716,18 +716,18 @@ class DBHandler:
                 active = ?
             WHERE id = ?
         """, (
-            scheduler.user_id,
-            scheduler.name,
-            _num(scheduler.betrag),
-            _num(scheduler.anteil),
-            scheduler.aktien_id,
-            scheduler.kategorie_id,
-            scheduler.ausgangs_konto_id,
-            scheduler.eingangs_konto_id,
-            _dt(scheduler.start_datum),
-            _dt(scheduler.next_due),
-            scheduler.active,
-            scheduler.id
+            monthlycosts.user_id,
+            monthlycosts.name,
+            _num(monthlycosts.betrag),
+            _num(monthlycosts.anteil),
+            monthlycosts.aktien_id,
+            monthlycosts.kategorie_id,
+            monthlycosts.ausgangs_konto_id,
+            monthlycosts.eingangs_konto_id,
+            _dt(monthlycosts.start_datum),
+            _dt(monthlycosts.next_due),
+            monthlycosts.active,
+            monthlycosts.id
         ))
 
     def insert_savings(

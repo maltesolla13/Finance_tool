@@ -113,7 +113,7 @@ class SchemaSparziel:
 
 
 @dataclass
-class SchemaScheduler:
+class SchemaMonthlyCosts:
     user_id: int
     name: str
     kategorie_id: int

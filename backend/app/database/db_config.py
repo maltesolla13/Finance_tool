@@ -168,9 +168,9 @@ def init_db():
     )
     """)
 
-    # Scheduler
+    # MonthlyCosts
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS scheduler (
+    CREATE TABLE IF NOT EXISTS monthlycosts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         name TEXT NOT NULL,

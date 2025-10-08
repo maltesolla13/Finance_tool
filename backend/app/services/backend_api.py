@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
-from backend.app.models.schema import SchemaKonto, SchemaUser
+from backend.app.models.schema import SchemaKonto, \
+    SchemaUser, SchemaMonthlyCosts, SchemaEinkauf, SchemaKategorie
 
 
 class BackendRoutes:
@@ -93,7 +94,7 @@ class BackendRoutes:
             finally:
                 db.close()
 
-        # ---- Users (gleiches Muster) ----
+        # ---- Users ----
         def get_user() -> List[SchemaUser]:
             db = DBHandler()
             try:
@@ -136,6 +137,182 @@ class BackendRoutes:
             finally:
                 db.close()
 
+        # ---- Kategorien ----
+        def get_kategorie() -> List[SchemaKategorie]:
+            db = DBHandler()
+            try:
+                rows = db.cursor.execute(
+                    "SELECT id, name FROM kategorie ORDER BY id").fetchall()
+                return [SchemaKategorie(
+                    id=r["id"],
+                    name=r["name"]) for r in rows]
+            finally:
+                db.close()
+
+        def create_kategorie(payload: SchemaKategorie) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "INSERT INTO kategorie(name) VALUES (?)", (payload.name,))
+                db.conn.commit()
+            finally:
+                db.close()
+
+        def update_kategorie(
+                kategorie_id: int,
+                payload: SchemaKategorie) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "UPDATE kategorie SET name=? WHERE id=?",
+                    (payload.name, kategorie_id))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Kategorie nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
+        def delete_kategorie(kategorie_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM kategorie WHERE id=?",
+                    (kategorie_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Kategorie nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
+        # ---- MonthlyCosts ----
+        def get_monthlycosts() -> List[SchemaMonthlyCosts]:
+            db = DBHandler()
+            try:
+                rows = db.load_monthlycosts()
+                return [
+                    SchemaMonthlyCosts(
+                        id=r["id"],
+                        user_id=r["user_id"],
+                        name=r["name"],
+                        betrag=r["betrag"],
+                        anteil=r["anteil"],
+                        aktien_id=r["aktien_id"],
+                        kategorie_id=r["kategorie_id"],
+                        ausgangs_konto_id=r["ausgangs_konto_id"],
+                        eingangs_konto_id=r["eingangs_konto_id"],
+                        start_datum=r["start_datum"],
+                        next_due=r["next_due"],
+                        active=bool(r["active"]),
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_monthlycosts(payload: SchemaMonthlyCosts) -> None:
+            db = DBHandler()
+            try:
+                db.insert_monthlycosts(payload)
+            finally:
+                db.close()
+
+        def update_monthlycosts(
+                monthlycosts_id: int,
+                payload: SchemaMonthlyCosts
+        ) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_monthlycosts()]
+                if monthlycosts_id not in ids:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="MonthlyCosts nicht gefunden"
+                    )
+                # DBHandler.update_monthlycosts erwartet ein Objekt mit id
+                from types import SimpleNamespace
+                db.update_monthlycosts(SimpleNamespace(
+                    id=monthlycosts_id,
+                    **payload.__dict__
+                ))
+            finally:
+                db.close()
+
+        def delete_monthlycosts(monthlycosts_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM monthlycosts WHERE id = ?",
+                    (monthlycosts_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="MonthlyCosts nicht gefunden"
+                    )
+                db.conn.commit()
+            finally:
+                db.close()
+
+        # ---- Einkauf ----
+        def get_einkauf() -> List[SchemaEinkauf]:
+            db = DBHandler()
+            try:
+                rows = db.load_einkauf()
+                return [
+                    SchemaEinkauf(
+                        id=r["id"],
+                        user_id=r["user_id"],
+                        name=r["name"],
+                        betrag=r["betrag"],
+                        kategorie_id=r["kategorie_id"],
+                        konto_id=r["konto_id"],
+                        laden_id=r["laden_id"],
+                        ausgabentyp_id=r["ausgabentyp_id"],
+                        datum=r["datum"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_einkauf(payload: SchemaEinkauf) -> None:
+            db = DBHandler()
+            try:
+                db.insert_einkauf(payload)
+            finally:
+                db.close()
+
+        def update_einkauf(einkauf_id: int, payload: SchemaEinkauf) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_einkauf()]
+                if einkauf_id not in ids:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Einkauf nicht gefunden"
+                    )
+                from types import SimpleNamespace
+                db.update_einkauf(SimpleNamespace(
+                    id=einkauf_id,
+                    **payload.__dict__))
+            finally:
+                db.close()
+
+        def delete_einkauf(einkauf_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM einkauf WHERE id = ?",
+                    (einkauf_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Einkauf nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
         # ---- Registry: alles an EINER Stelle deklarieren ----
         resources = [
             ("konten", SchemaKonto, SchemaKonto, get_konto, create_konto,
@@ -143,9 +320,15 @@ class BackendRoutes:
 
             ("users",  SchemaUser,  SchemaUser,  get_user,  create_users,
              update_user,  delete_user,  "Users"),
-            # später: ("stocks", StockCreate, StockOut, stocks_list, ... ,
-            # "Stocks"),
-            # später: ("bewegungen", BewegungCreate, BewegungOut, ...),
+
+            ("monthlycosts", SchemaMonthlyCosts, SchemaMonthlyCosts,
+             get_monthlycosts, create_monthlycosts, update_monthlycosts,
+             delete_monthlycosts, "MonthlyCosts"),
+
+            ("einkauf", SchemaEinkauf, SchemaEinkauf,
+             get_einkauf, create_einkauf, update_einkauf, delete_einkauf,
+             "Einkauf"),
+
         ]
 
         for (
