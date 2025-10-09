@@ -393,10 +393,10 @@ class BackendRoutes:
             try:
                 rows = db.load_securities()
                 return [
-                    SchemaEinkauf(
+                    SchemaSecurities(
                         id=r["id"],
                         name=r["name"],
-                        isin=r["betrag"],
+                        isin=r["isin"],
                         ticker=r["ticker"],
                         instrument=r["instrument"],
                     )
@@ -425,9 +425,9 @@ class BackendRoutes:
                         detail="Securities nicht gefunden"
                     )
                 from types import SimpleNamespace
-                db.update_einkauf(SimpleNamespace(
-                    id=securities_id,
-                    **payload.__dict__))
+                db.update_securities(
+                    SimpleNamespace(
+                        id=securities_id, **payload.__dict__))
             finally:
                 db.close()
 
@@ -463,7 +463,7 @@ class BackendRoutes:
 
             ("securities", SchemaSecurities, SchemaSecurities,
              get_securities, create_securities, update_securities,
-             delete_securities, "Einkauf"),
+             delete_securities, "Securities"),
 
         ]
 

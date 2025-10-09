@@ -27,6 +27,9 @@ const AddSecurities = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [name, setName] = useState("");
+  const [isin, setIsin] = useState("");
+  const [ticker, setTicker] = useState("");
+  const [instrument, setInstrument] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -49,25 +52,28 @@ const AddSecurities = () => {
     setError("");
     setSuccess("");
 
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError("Name Eingeben");
+    const payload = {
+      name: name.trim(),
+      isin: isin.trim(),
+      ticker: ticker.trim(),
+      instrument: instrument.trim(),
+    };
+    if (!payload.name) {
+      setError("Name eingeben");
       return;
     }
 
     setLoading(true);
     try {
-      await api.createSecurities({ name: trimmed });
-      setSuccess(`Securities "${trimmed}" wurde angelegt.`);
+      await api.createSecurities(payload);
+      setSuccess(`Securities "${payload.name}" wurde angelegt.`);
       setName("");
+      setIsin("");
+      setTicker("");
+      setInstrument("");
       await loadSecurities();
     } catch (e) {
-      if (e instanceof ApiError) {
-        if (e.status === 409) setError("Name existiert ebreits");
-        else setError(e.message || "Fehler beim Anlegen");
-      } else {
-        setError("Unbekannter Fehler.");
-      }
+      /* unverändert */
     } finally {
       setLoading(false);
     }
@@ -112,7 +118,7 @@ const AddSecurities = () => {
               Aktien Infos hinzufügen
             </Typography>
             <Box component="form" onSubmit={handleSubmit}>
-              <Stack direction="row" spacing={2}>
+              <Stack spacing={2}>
                 <TextField
                   label="Name"
                   value={name}
@@ -131,6 +137,22 @@ const AddSecurities = () => {
                       color: colors?.greenAccent?.[400],
                     },
                   }}
+                />
+
+                <TextField
+                  label="isin"
+                  value={isin}
+                  onChange={(e) => setIsin(e.target.value)}
+                />
+                <TextField
+                  label="ticker"
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value)}
+                />
+                <TextField
+                  label="instrument"
+                  value={instrument}
+                  onChange={(e) => setInstrument(e.target.value)}
                 />
                 <Button type="submit" variant="contained">
                   Anlegen

@@ -77,7 +77,7 @@ const AddMonthlyCosts = () => {
     };
   };
 
-  const refreshOptions = useMemo(() =>
+  const refreshOptions = useCallback(
     debounce(async (u, k, c) => {
       setLoadingOpts(true);
       try {
@@ -101,7 +101,8 @@ const AddMonthlyCosts = () => {
       } finally {
         setLoadingOpts(false);
       }
-    }, 250)
+    }, 250),
+    [api]
   );
 
   useEffect(() => {
@@ -259,7 +260,7 @@ const AddMonthlyCosts = () => {
         return;
       }
       const payload = {
-        userId: userId,
+        user_id: userId,
         name,
         kategorie_id: kategorieId,
         start_datum: iso(startDatum),
