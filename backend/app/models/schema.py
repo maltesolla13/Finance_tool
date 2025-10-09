@@ -41,7 +41,7 @@ class SchemaLaden:
 
 
 @dataclass
-class SchemaWertpapierInfo:
+class SchemaSecurities:
     name: str
     isin: str
     ticker: str  # (stock, etf, crypto)

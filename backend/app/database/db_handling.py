@@ -1,6 +1,6 @@
 from backend.app.database.db_config import get_connection
 from backend.app.models.schema import SchemaEinkauf, SchemaMonthlyCosts, \
-    SchemaWertpapierInfo, SchemaAktienKurs, SchemaAusgabentyp, \
+    SchemaSecurities, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
     SchemaUser
@@ -314,12 +314,12 @@ class DBHandler:
         """, (ausgabentyp.name, ausgabentyp.id))
         self.conn.commit()
 
-    def insert_wertpapierinfo(
+    def insert_securities(
             self,
-            wertpapierinfo: SchemaWertpapierInfo
-    ) -> SchemaWertpapierInfo:
+            securities: SchemaSecurities
+    ) -> SchemaSecurities:
         """
-        Fügt eine neue Aktie in die Tabelle wertpapierinfo ein.
+        Fügt eine neue Aktie in die Tabelle securities ein.
 
         Input
         -----
@@ -331,38 +331,38 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO wertpapierinfo (name, isin, ticker, instrument)
+            INSERT INTO securities (name, isin, ticker, instrument)
             VALUES (?, ?, ?, ?)
         """, (
-            wertpapierinfo.name,
-            wertpapierinfo.isin,
-            wertpapierinfo.ticker,
-            wertpapierinfo.instrument
+            securities.name,
+            securities.isin,
+            securities.ticker,
+            securities.instrument
         ))
 
-    def update_wertpapierinfo(
+    def update_securities(
             self,
-            wertpapierinfo: SchemaWertpapierInfo
+            securities: SchemaSecurities
     ) -> None:
         """
         Aktualisiert ein Wertpapier (name, isin, ticker, instrument).
         """
         self.cursor.execute("""
-            UPDATE wertpapierinfo
+            UPDATE securities
             SET name = ?, isin = ?, ticker = ?, instrument = ?
             WHERE id = ?
         """, (
-            wertpapierinfo.name,
-            wertpapierinfo.isin,
-            wertpapierinfo.ticker,
-            wertpapierinfo.instrument,
-            wertpapierinfo.id
+            securities.name,
+            securities.isin,
+            securities.ticker,
+            securities.instrument,
+            securities.id
         ))
         self.conn.commit()
 
-    def load_wertpapierinfo(self) -> list[SchemaWertpapierInfo]:
+    def load_securities(self) -> list[SchemaSecurities]:
         """
-        Lädt alle Einträge aus der Tabelle wertpapierinfo und gibt diese als
+        Lädt alle Einträge aus der Tabelle securities und gibt diese als
         Liste von Tupeln zurück.
 
         Input
@@ -376,9 +376,9 @@ class DBHandler:
             der aktieninfo
         """
         self.cursor.execute("SELECT id, name, isin, ticker, instrument\
-                            FROM wertpapierinfo")
-        wertpapierinfo = self.cursor.fetchall()
-        return wertpapierinfo
+                            FROM securities")
+        securities = self.cursor.fetchall()
+        return securities
 
     def insert_kurs(self, kurs: SchemaAktienKurs) -> SchemaAktienKurs:
         """

@@ -58,9 +58,9 @@ def init_db():
     )
     """)
 
-    # WertpapierInfo
+    # Securities
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS wertpapierinfo (
+    CREATE TABLE IF NOT EXISTS securities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         isin TEXT NOT NULL,
@@ -76,7 +76,7 @@ def init_db():
         aktien_id INTEGER NOT NULL,
         kurs REAL NOT NULL,
         datum TEXT NOT NULL,
-        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id)
+        FOREIGN KEY (aktien_id) REFERENCES securities(id)
     )
     """)
 
@@ -125,7 +125,7 @@ def init_db():
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
+        FOREIGN KEY (aktien_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
     )
@@ -145,7 +145,7 @@ def init_db():
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id)
+        FOREIGN KEY (aktien_id) REFERENCES securities(id)
     )
     """)
 
@@ -184,7 +184,7 @@ def init_db():
         next_due TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0,1)),
         FOREIGN KEY (user_id) REFERENCES user(id),
-        FOREIGN KEY (aktien_id) REFERENCES wertpapierinfo(id),
+        FOREIGN KEY (aktien_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
         FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id)

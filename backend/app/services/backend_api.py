@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaEinkauf, SchemaKategorie, \
-    SchemaOption
+    SchemaOption, SchemaSecurities
 
 
 class BackendRoutes:
@@ -387,6 +387,64 @@ class BackendRoutes:
             finally:
                 db.close()
 
+        # ---- Securities ----
+        def get_securities() -> List[SchemaSecurities]:
+            db = DBHandler()
+            try:
+                rows = db.load_securities()
+                return [
+                    SchemaEinkauf(
+                        id=r["id"],
+                        name=r["name"],
+                        isin=r["betrag"],
+                        ticker=r["ticker"],
+                        instrument=r["instrument"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_securities(payload: SchemaSecurities) -> None:
+            db = DBHandler()
+            try:
+                db.insert_securities(payload)
+            finally:
+                db.close()
+
+        def update_securities(
+                securities_id: int,
+                payload: SchemaSecurities
+        ) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_securities()]
+                if securities_id not in ids:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Securities nicht gefunden"
+                    )
+                from types import SimpleNamespace
+                db.update_einkauf(SimpleNamespace(
+                    id=securities_id,
+                    **payload.__dict__))
+            finally:
+                db.close()
+
+        def delete_securities(securities_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM securities WHERE id = ?",
+                    (securities_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Securities nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
         # ---- Registry: alles an EINER Stelle deklarieren ----
         resources = [
             ("konten", SchemaKonto, SchemaKonto, get_konto, create_konto,
@@ -402,6 +460,10 @@ class BackendRoutes:
             ("einkauf", SchemaEinkauf, SchemaEinkauf,
              get_einkauf, create_einkauf, update_einkauf, delete_einkauf,
              "Einkauf"),
+
+            ("securities", SchemaSecurities, SchemaSecurities,
+             get_securities, create_securities, update_securities,
+             delete_securities, "Einkauf"),
 
         ]
 
