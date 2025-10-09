@@ -56,7 +56,6 @@ class BackendRoutes:
 
     def request_handling(self) -> None:
         opt_router = APIRouter(prefix="/options", tags=["Options"])
-        self.router.include_router(opt_router)
 
         @opt_router.get("", response_model=List[SchemaOption])
         def get_options(
@@ -414,3 +413,5 @@ class BackendRoutes:
                 name, dto_in, dto_out, list_fn, create_fn, update_fn,
                 delete_fn, tag
             )
+
+        self.router.include_router(opt_router)

@@ -40,17 +40,31 @@ export class ApiRequests {
   }
 
   // kategorie
-  listKkategorie() {
+  listKategorie() {
     return this.api.get("/kategorie");
   }
-  createKkategorie(data) {
+  createKategorie(data) {
     return this.api.post("/kategorie", data);
   }
-  updateKkategorie(id, data) {
+  updateKategorie(id, data) {
     return this.api.put(`/kategorie/${id}`, data);
   }
-  deleteKkategorie(id) {
+  deleteKategorie(id) {
     return this.api.delete(`/kategorie/${id}`);
+  }
+
+  // Securities
+  listSecurities() {
+    return this.api.get("/securities");
+  }
+  createSecurities(data) {
+    return this.api.post("/securities", data);
+  }
+  updateSecurities(id, data) {
+    return this.api.put(`/securities/${id}`, data);
+  }
+  deleteSecurities(id) {
+    return this.api.delete(`/securities/${id}`);
   }
 
   // Receipt

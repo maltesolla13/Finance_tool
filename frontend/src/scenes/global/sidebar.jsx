@@ -175,7 +175,7 @@ const Sidebar = () => {
               />
               <Item
                 title="Add new Receipt"
-                to="/forms/receipt"
+                to="/forms/addreceipt"
                 icon={<ReceiptLongOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
@@ -189,7 +189,7 @@ const Sidebar = () => {
               />
               <Item
                 title="Add new Securities"
-                to="/forms/securities"
+                to="/forms/addsecurities"
                 icon={<AddCircleOutlineOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
