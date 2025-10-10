@@ -191,9 +191,9 @@ def init_db():
     )
     """)
 
-    # Einkauf
+    # Receipt
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS einkauf (
+    CREATE TABLE IF NOT EXISTS receipt (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         name TEXT NOT NULL,

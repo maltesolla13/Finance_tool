@@ -4,7 +4,7 @@ from typing import List, Callable, Any
 from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
-    SchemaUser, SchemaMonthlyCosts, SchemaEinkauf, SchemaKategorie, \
+    SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
     SchemaOption, SchemaSecurities
 
 
@@ -328,13 +328,13 @@ class BackendRoutes:
             finally:
                 db.close()
 
-        # ---- Einkauf ----
-        def get_einkauf() -> List[SchemaEinkauf]:
+        # ---- Receipt ----
+        def get_receipt() -> List[SchemaReceipt]:
             db = DBHandler()
             try:
-                rows = db.load_einkauf()
+                rows = db.load_receipt()
                 return [
-                    SchemaEinkauf(
+                    SchemaReceipt(
                         id=r["id"],
                         user_id=r["user_id"],
                         name=r["name"],
@@ -350,39 +350,39 @@ class BackendRoutes:
             finally:
                 db.close()
 
-        def create_einkauf(payload: SchemaEinkauf) -> None:
+        def create_receipt(payload: SchemaReceipt) -> None:
             db = DBHandler()
             try:
-                db.insert_einkauf(payload)
+                db.insert_receipt(payload)
             finally:
                 db.close()
 
-        def update_einkauf(einkauf_id: int, payload: SchemaEinkauf) -> None:
+        def update_receipt(receipt_id: int, payload: SchemaReceipt) -> None:
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_einkauf()]
-                if einkauf_id not in ids:
+                ids = [r["id"] for r in db.load_receipt()]
+                if receipt_id not in ids:
                     raise HTTPException(
                         status_code=404,
-                        detail="Einkauf nicht gefunden"
+                        detail="receipt nicht gefunden"
                     )
                 from types import SimpleNamespace
-                db.update_einkauf(SimpleNamespace(
-                    id=einkauf_id,
+                db.update_receipt(SimpleNamespace(
+                    id=receipt_id,
                     **payload.__dict__))
             finally:
                 db.close()
 
-        def delete_einkauf(einkauf_id: int) -> None:
+        def delete_receipt(receipt_id: int) -> None:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "DELETE FROM einkauf WHERE id = ?",
-                    (einkauf_id,))
+                    "DELETE FROM receipt WHERE id = ?",
+                    (receipt_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
                         status_code=404,
-                        detail="Einkauf nicht gefunden")
+                        detail="receipt nicht gefunden")
                 db.conn.commit()
             finally:
                 db.close()
@@ -457,9 +457,9 @@ class BackendRoutes:
              get_monthlycosts, create_monthlycosts, update_monthlycosts,
              delete_monthlycosts, "MonthlyCosts"),
 
-            ("einkauf", SchemaEinkauf, SchemaEinkauf,
-             get_einkauf, create_einkauf, update_einkauf, delete_einkauf,
-             "Einkauf"),
+            ("receipt", SchemaReceipt, SchemaReceipt,
+             get_receipt, create_receipt, update_receipt, delete_receipt,
+             "Receipt"),
 
             ("securities", SchemaSecurities, SchemaSecurities,
              get_securities, create_securities, update_securities,

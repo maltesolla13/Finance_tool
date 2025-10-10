@@ -1,5 +1,5 @@
 from backend.app.database.db_config import get_connection
-from backend.app.models.schema import SchemaEinkauf, SchemaMonthlyCosts, \
+from backend.app.models.schema import SchemaReceipt, SchemaMonthlyCosts, \
     SchemaSecurities, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
@@ -829,16 +829,16 @@ class DBHandler:
             savings.id
         ))
 
-    def insert_einkauf(
+    def insert_receipt(
             self,
-            einkauf: SchemaEinkauf
-    ) -> SchemaEinkauf:
+            receipt: SchemaReceipt
+    ) -> SchemaReceipt:
         """
-        Fügt eine neue einkauf Eintrag in die Tabelle einkauf ein.
+        Fügt eine neue receipt Eintrag in die Tabelle receipt ein.
 
         Input
         -----
-        einkauf: Ein Objekt mit Attribut
+        receipt: Ein Objekt mit Attribut
             'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
             'laden_id', 'ausgabentyp_id', 'datum'
 
@@ -847,21 +847,21 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO einkauf (user_id, name, betrag, kategorie_id, konto_id,
+            INSERT INTO receipt (user_id, name, betrag, kategorie_id, konto_id,
                             laden_id, ausgabentyp_id, datum)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            einkauf.user_id,
-            einkauf.name,
-            _num(einkauf.betrag),
-            einkauf.kategorie_id,
-            einkauf.konto_id,
-            einkauf.laden_id,
-            einkauf.ausgabentyp_id,
-            _dt(einkauf.datum)
+            receipt.user_id,
+            receipt.name,
+            _num(receipt.betrag),
+            receipt.kategorie_id,
+            receipt.konto_id,
+            receipt.laden_id,
+            receipt.ausgabentyp_id,
+            _dt(receipt.datum)
         ))
 
-    def load_einkauf(self) -> list[tuple]:
+    def load_receipt(self) -> list[tuple]:
         """
         Lädt alle Einkäufe.
         Rückgabe: Liste von Tupeln (id, user_id, name, betrag, kategorie_id,
@@ -870,18 +870,18 @@ class DBHandler:
         self.cursor.execute("""
             SELECT id, user_id, name, betrag, kategorie_id, konto_id, laden_id,
                             ausgabentyp_id, datum
-            FROM einkauf
+            FROM receipt
         """)
         return self.cursor.fetchall()
 
-    def update_einkauf(self, einkauf: SchemaEinkauf) -> None:
+    def update_receipt(self, receipt: SchemaReceipt) -> None:
         """
-        Aktualisiert einen bestehenden einkauf-Eintrag in der Tabelle
-        einkauf.
+        Aktualisiert einen bestehenden receipt-Eintrag in der Tabelle
+        receipt.
 
         Input
         -----
-        einkauf: Ein Objekt mit Attributen
+        receipt: Ein Objekt mit Attributen
             'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
             'laden_id', 'ausgabentyp_id', 'datum'
 
@@ -890,7 +890,7 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            UPDATE einkauf
+            UPDATE receipt
             SET user_id = ?,
                 name = ?,
                 betrag = ?,
@@ -901,13 +901,13 @@ class DBHandler:
                 datum = ?
             WHERE id = ?
         """, (
-            einkauf.user_id,
-            einkauf.name,
-            _num(einkauf.betrag),
-            einkauf.kategorie_id,
-            einkauf.konto_id,
-            einkauf.laden_id,
-            einkauf.ausgabentyp_id,
-            _dt(einkauf.datum),
-            einkauf.id
+            receipt.user_id,
+            receipt.name,
+            _num(receipt.betrag),
+            receipt.kategorie_id,
+            receipt.konto_id,
+            receipt.laden_id,
+            receipt.ausgabentyp_id,
+            _dt(receipt.datum),
+            receipt.id
         ))

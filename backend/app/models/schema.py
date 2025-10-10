@@ -135,7 +135,7 @@ class SchemaMonthlyCosts:
 
 
 @dataclass
-class SchemaEinkauf:
+class SchemaReceipt:
     user_id: int
     name: str
     betrag: Decimal
