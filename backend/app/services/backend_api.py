@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
-    SchemaOption, SchemaSecurities
+    SchemaOption, SchemaSecurities, SchemaLaden
 
 
 class BackendRoutes:
@@ -101,25 +101,27 @@ class BackendRoutes:
                 response_model=SchemaOption,
                 status_code=201)
         def ensure_option(payload: EnsureIn):
-            if payload.entity != "kategorien":
+            if payload.entity not in {"kategorien", "laden"}:
                 raise HTTPException(
                     status_code=400,
-                    detail="Only 'kategorien' allowed")
+                    detail="Only 'kategorien' or 'laden' allowed")
 
             name = payload.name.strip()
             if not name:
                 raise HTTPException(status_code=400, detail="Name required")
 
+            table = payload.entity  # 'kategorien' ODER 'laden'
             db = DBHandler()
             try:
                 row = db.cursor.execute(
-                    "SELECT id, name FROM kategorien WHERE name = ?", (name,)
+                    f"SELECT id, name FROM {table} WHERE name = ?",
+                    (name,)
                 ).fetchone()
                 if row:
                     return SchemaOption(id=row["id"], name=row["name"])
 
                 db.cursor.execute(
-                    "INSERT INTO kategorien(name) VALUES (?)",
+                    f"INSERT INTO {table}(name) VALUES (?)",
                     (name,))
                 new_id = db.cursor.lastrowid
                 db.conn.commit()
@@ -260,6 +262,47 @@ class BackendRoutes:
             finally:
                 db.close()
 
+        # ---- Laden ----
+        def get_laden() -> List[SchemaLaden]:
+            db = DBHandler()
+            try:
+                rows = db.load_laden()
+                return [SchemaLaden(id=row["id"], name=row["name"])
+                        for row in rows]
+            finally:
+                db.close()
+
+        def create_laden(payload: SchemaLaden) -> None:
+            db = DBHandler()
+            try:
+                db.insert_laden(SimpleNamespace(name=payload.name))
+            finally:
+                db.close()
+
+        def update_laden(laden_id: int, payload: SchemaLaden) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_konten()]
+                if laden_id not in ids:
+                    raise HTTPException(status_code=404,
+                                        detail="Laden not found")
+                db.update_laden(SimpleNamespace(
+                    id=laden_id, name=payload.name))
+            finally:
+                db.close()
+
+        def delete_laden(laden_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute("DELETE FROM konten WHERE id = ?",
+                                  (laden_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Laden not found")
+                db.conn.commit()
+            finally:
+                db.close()
+
         # ---- MonthlyCosts ----
         def get_monthlycosts() -> List[SchemaMonthlyCosts]:
             db = DBHandler()
@@ -342,7 +385,6 @@ class BackendRoutes:
                         kategorie_id=r["kategorie_id"],
                         konto_id=r["konto_id"],
                         laden_id=r["laden_id"],
-                        ausgabentyp_id=r["ausgabentyp_id"],
                         datum=r["datum"],
                     )
                     for r in rows
@@ -452,6 +494,13 @@ class BackendRoutes:
 
             ("users",  SchemaUser,  SchemaUser,  get_user,  create_users,
              update_user,  delete_user,  "Users"),
+
+            ("kategorien",  SchemaKategorie,  SchemaKategorie,  get_kategorien,
+             create_kategorien, update_kategorien,  delete_kategorien,
+             "Kategorien"),
+
+            ("laden",  SchemaLaden,  SchemaLaden,  get_laden,  create_laden,
+             update_laden,  delete_laden,  "Laden"),
 
             ("monthlycosts", SchemaMonthlyCosts, SchemaMonthlyCosts,
              get_monthlycosts, create_monthlycosts, update_monthlycosts,

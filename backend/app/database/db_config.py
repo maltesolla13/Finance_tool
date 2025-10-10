@@ -201,13 +201,11 @@ def init_db():
         kategorie_id INTEGER,
         konto_id INTEGER,
         laden_id INTEGER,
-        ausgabentyp_id INTEGER,
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (laden_id) REFERENCES laden(id),
-        FOREIGN KEY (ausgabentyp_id) REFERENCES ausgabentypen(id)
+        FOREIGN KEY (laden_id) REFERENCES laden(id)
     )
     """)
 

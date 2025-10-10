@@ -142,6 +142,5 @@ class SchemaReceipt:
     kategorie_id: int
     konto_id: int
     laden_id: int
-    ausgabentyp_id: int
     datum: datetime
     id: Optional[int] = None

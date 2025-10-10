@@ -4,6 +4,9 @@ from contextlib import asynccontextmanager
 from backend.app.database.db_config import init_db
 from backend.app.services.backend_api import BackendRoutes
 
+# Starten:
+# python -m uvicorn main:app --reload
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

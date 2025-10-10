@@ -840,7 +840,7 @@ class DBHandler:
         -----
         receipt: Ein Objekt mit Attribut
             'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
-            'laden_id', 'ausgabentyp_id', 'datum'
+            'laden_id', 'datum'
 
         Response
         --------
@@ -848,8 +848,8 @@ class DBHandler:
         """
         self.cursor.execute("""
             INSERT INTO receipt (user_id, name, betrag, kategorie_id, konto_id,
-                            laden_id, ausgabentyp_id, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            laden_id, datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             receipt.user_id,
             receipt.name,
@@ -857,7 +857,6 @@ class DBHandler:
             receipt.kategorie_id,
             receipt.konto_id,
             receipt.laden_id,
-            receipt.ausgabentyp_id,
             _dt(receipt.datum)
         ))
 
@@ -865,11 +864,11 @@ class DBHandler:
         """
         Lädt alle Einkäufe.
         Rückgabe: Liste von Tupeln (id, user_id, name, betrag, kategorie_id,
-        konto_id, laden_id, ausgabentyp_id, datum)
+        konto_id, laden_id,  datum)
         """
         self.cursor.execute("""
             SELECT id, user_id, name, betrag, kategorie_id, konto_id, laden_id,
-                            ausgabentyp_id, datum
+                             datum
             FROM receipt
         """)
         return self.cursor.fetchall()
@@ -883,7 +882,7 @@ class DBHandler:
         -----
         receipt: Ein Objekt mit Attributen
             'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id',
-            'laden_id', 'ausgabentyp_id', 'datum'
+            'laden_id', 'datum'
 
         Response
         --------
@@ -897,7 +896,6 @@ class DBHandler:
                 kategorie_id = ?,
                 konto_id = ?,
                 laden_id = ?,
-                ausgabentyp_id = ?,
                 datum = ?
             WHERE id = ?
         """, (
@@ -907,7 +905,6 @@ class DBHandler:
             receipt.kategorie_id,
             receipt.konto_id,
             receipt.laden_id,
-            receipt.ausgabentyp_id,
             _dt(receipt.datum),
             receipt.id
         ))
