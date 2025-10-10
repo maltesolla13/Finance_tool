@@ -6,7 +6,7 @@ import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
 // import InputHome from "./scenes/input/home";
 import AddAccount from "./scenes/forms/addaccounts";
-//import AddReceipt from "./scenes/forms/addreceipt";
+import AddReceipt from "./scenes/forms/addreceipt";
 import AddUser from "./scenes/forms/adduser";
 import AddSecurities from "./scenes/forms/addsecurities";
 import AddMonthlyCosts from "./scenes/forms/addmonthlycosts";
@@ -35,7 +35,7 @@ function App() {
               {/* <Route path="/forms" element={<Input/>}/> */}
               <Route path="/forms/adduser" element={<AddUser />} />
               <Route path="/forms/addaccount" element={<AddAccount />} />
-              {/* <Route path="/forms/addreceipt" element={<AddReceipt />} /> */}
+              <Route path="/forms/addreceipt" element={<AddReceipt />} />
               <Route
                 path="/forms/addmonthlycosts"
                 element={<AddMonthlyCosts />}
