@@ -33,8 +33,23 @@ const filter = createFilterOptions();
 
 function toISODate(d) {
   if (!d) return "";
-  if (typeof d === "string") return d; // expect yyyy-mm-dd
-  return new Date(d).toISOString().slice(0, 10);
+  if (typeof d === "string") return d.split("T")[0]; // falls Zeitanteil dran hängt
+  const iso = new Date(d).toISOString();
+  return iso.slice(0, 10); // yyyy-mm-dd für Input-Felder
+}
+
+function formatDateDE(val) {
+  if (!val) return "";
+  if (typeof val === "string") {
+    const part = val.split("T")[0]; // "YYYY-MM-DD"
+    const [y, m, d] = part.split("-");
+    if (y && m && d) return `${d}.${m}.${y}`; // TT.MM.JJJJ
+  }
+  const dt = new Date(val);
+  if (!Number.isNaN(dt.getTime())) {
+    return new Intl.DateTimeFormat("de-DE").format(dt);
+  }
+  return String(val);
 }
 
 export default function AddReceipt() {
@@ -408,7 +423,7 @@ export default function AddReceipt() {
                 <TableBody>
                   {receiptsSorted.map((r) => (
                     <TableRow key={r.id} hover>
-                      <TableCell>{toISODate(r.datum)}</TableCell>
+                      <TableCell>{formatDateDE(r.datum)}</TableCell>
                       <TableCell>
                         {r.betrag != null ? Number(r.betrag).toFixed(2) : "-"}
                       </TableCell>
