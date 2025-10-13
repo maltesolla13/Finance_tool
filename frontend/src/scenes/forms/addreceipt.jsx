@@ -28,34 +28,20 @@ import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+import { OptionsService } from "./Services/options.service";
+import * as Validators from "./Services/validators";
+import * as Payloads from "./Services/payloads";
+import * as DateUtils from "./Services/date.utils";
 
 const filter = createFilterOptions();
-
-function toISODate(d) {
-  if (!d) return "";
-  if (typeof d === "string") return d.split("T")[0]; // falls Zeitanteil dran hängt
-  const iso = new Date(d).toISOString();
-  return iso.slice(0, 10); // yyyy-mm-dd für Input-Felder
-}
-
-function formatDateDE(val) {
-  if (!val) return "";
-  if (typeof val === "string") {
-    const part = val.split("T")[0]; // "YYYY-MM-DD"
-    const [y, m, d] = part.split("-");
-    if (y && m && d) return `${d}.${m}.${y}`; // TT.MM.JJJJ
-  }
-  const dt = new Date(val);
-  if (!Number.isNaN(dt.getTime())) {
-    return new Intl.DateTimeFormat("de-DE").format(dt);
-  }
-  return String(val);
-}
 
 export default function AddReceipt() {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+
+  // === API + FormService ===
   const api = useMemo(() => new ApiRequests(new ApiClient()), []);
+  const optionsSvc = useMemo(() => new OptionsService(api), [api]);
 
   // ====== Form State ======
   const [userId, setUserId] = useState(null);
@@ -65,7 +51,7 @@ export default function AddReceipt() {
 
   const [name, setName] = useState("");
   const [betrag, setBetrag] = useState("");
-  const [datum, setDatum] = useState(toISODate(new Date()));
+  const [datum, setDatum] = useState(DateUtils.toISODate(new Date()));
 
   // ====== Options (Autocomplete) ======
   const [optUsers, setOptUsers] = useState([]);
@@ -85,56 +71,59 @@ export default function AddReceipt() {
   const [catsById, setCatsById] = useState({});
   const [ladenById, setLadenById] = useState({});
 
-  // debounce helper
-  const debounce = (fn, ms = 250) => {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
-    };
-  };
+  // === Optionen initial laden ===
+  const loadAllOptions = useCallback(async () => {
+    setLoadingOpts(true);
+    try {
+      const { options, maps } = await optionsSvc.loadAll({
+        includeSecurities: false,
+      });
+      setOptUsers(options.users);
+      setOptKonten(options.konten);
+      setOptCats(options.cats);
+      setOptLaden(options.laden);
+      setUsersById(maps.usersById);
+      setKontenById(maps.kontenById);
+      setCatsById(maps.catsById);
+      setLadenById(maps.ladenById);
+    } finally {
+      setLoadingOpts(false);
+    }
+  }, [optionsSvc]);
 
-  const refreshOptions = useCallback(
-    debounce(async (u, k, c, l) => {
-      setLoadingOpts(true);
+  useEffect(() => {
+    loadAllOptions();
+  }, [loadAllOptions]);
+
+  // Live-Suche (leicht debounced)
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
       try {
-        const [users, konten, cats, shops] = await Promise.all([
-          api.searchOptions("users", u || ""),
-          api.searchOptions("konten", k || ""),
-          api.searchOptions("kategorien", c || ""),
-          api.searchOptions("laden", l || ""),
-        ]);
-        setOptUsers(users ?? []);
-        setOptKonten(konten ?? []);
-        setOptCats(cats ?? []);
-        setOptLaden(shops ?? []);
-
-        setUsersById(
-          Object.fromEntries((users ?? []).map((o) => [o.id, o.name]))
-        );
-        setKontenById(
-          Object.fromEntries((konten ?? []).map((o) => [o.id, o.name]))
-        );
-        setCatsById(
-          Object.fromEntries((cats ?? []).map((o) => [o.id, o.name]))
-        );
-        setLadenById(
-          Object.fromEntries((shops ?? []).map((o) => [o.id, o.name]))
-        );
-      } finally {
-        setLoadingOpts(false);
+        const { options, maps } = await optionsSvc.refreshOptions({
+          users: inputUser,
+          konten: inputKonto,
+          cats: inputCat,
+          laden: inputLaden,
+        });
+        if (!alive) return;
+        setOptUsers(options.users);
+        setOptKonten(options.konten);
+        setOptCats(options.cats);
+        setOptLaden(options.laden);
+        setUsersById(maps.usersById);
+        setKontenById(maps.kontenById);
+        setCatsById(maps.catsById);
+        setLadenById(maps.ladenById);
+      } catch {
+        /* ignore */
       }
-    }, 250),
-    [api]
-  );
-
-  useEffect(() => {
-    refreshOptions("", "", "", "");
-  }, [refreshOptions]);
-
-  useEffect(() => {
-    refreshOptions(inputUser, inputKonto, inputCat, inputLaden);
-  }, [inputUser, inputKonto, inputCat, inputLaden, refreshOptions]);
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [inputUser, inputKonto, inputCat, inputLaden, optionsSvc]);
 
   // ====== Receipts laden ======
   const [receipts, setReceipts] = useState([]);
@@ -173,28 +162,31 @@ export default function AddReceipt() {
     e.preventDefault();
     setErr("");
     setOk("");
+
+    const errMsg = Validators.validateReceipt({
+      userId,
+      kontoId,
+      kategorieId,
+      ladenId,
+      name,
+      betrag,
+      datum,
+    });
+    if (errMsg) {
+      setErr(errMsg);
+      return;
+    }
+
     try {
-      if (
-        !userId ||
-        !kontoId ||
-        !kategorieId ||
-        !ladenId ||
-        !name ||
-        !betrag ||
-        !datum
-      ) {
-        setErr("Bitte alle Felder ausfüllen.");
-        return;
-      }
-      const payload = {
-        user_id: userId,
-        name: name.trim(),
-        betrag: Number(betrag),
-        kategorie_id: kategorieId,
-        konto_id: kontoId,
-        laden_id: ladenId,
-        datum: toISODate(datum),
-      };
+      const payload = Payloads.toPayloadReceipt({
+        userId,
+        kontoId,
+        kategorieId,
+        ladenId,
+        name,
+        betrag,
+        datum,
+      });
       await api.createReceipt(payload);
       setOk("Einkauf angelegt.");
       setName("");
@@ -202,7 +194,7 @@ export default function AddReceipt() {
       setKategorieId(null);
       setLadenId(null);
       setKontoId(null);
-      // user bewusst nicht resetten
+      // userId bewusst nicht resetten
       loadReceipts();
     } catch (e2) {
       console.error(e2);
@@ -236,8 +228,7 @@ export default function AddReceipt() {
       onChange={async (_, newVal) => {
         if (!newVal) return setKategorieId(null);
         if (newVal.__create) {
-          // Backend muss /options/ensure auch für 'laden' erlauben – Kategorien funktioniert bereits.
-          const created = await api.ensureOption("kategorien", newVal.__create);
+          const created = await optionsSvc.ensureKategorie(newVal.__create);
           setOptCats((prev) => [created, ...prev]);
           setCatsById((prev) => ({ ...prev, [created.id]: created.name }));
           setKategorieId(created.id);
@@ -276,9 +267,8 @@ export default function AddReceipt() {
       onChange={async (_, newVal) => {
         if (!newVal) return setLadenId(null);
         if (newVal.__create) {
-          // HINWEIS: Dein Backend akzeptiert aktuell ensure NUR für 'kategorien'.
-          // Erweitere es, damit auch 'laden' erlaubt ist – danach funktioniert das hier.
-          const created = await api.ensureOption("laden", newVal.__create);
+          // Backend: /options/ensure sollte auch 'laden' unterstützen
+          const created = await optionsSvc.ensureLaden(newVal.__create);
           setOptLaden((prev) => [created, ...prev]);
           setLadenById((prev) => ({ ...prev, [created.id]: created.name }));
           setLadenId(created.id);
@@ -423,7 +413,7 @@ export default function AddReceipt() {
                 <TableBody>
                   {receiptsSorted.map((r) => (
                     <TableRow key={r.id} hover>
-                      <TableCell>{formatDateDE(r.datum)}</TableCell>
+                      <TableCell>{DateUtils.formatDateDE(r.datum)}</TableCell>
                       <TableCell>
                         {r.betrag != null ? Number(r.betrag).toFixed(2) : "-"}
                       </TableCell>

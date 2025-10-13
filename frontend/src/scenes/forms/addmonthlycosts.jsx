@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useMemo as useReactMemo,
+} from "react";
 import {
   Box,
   TextField,
@@ -27,93 +33,121 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
-import { ApiError } from "../../data/ApiErrors";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+import { OptionsService } from "./Services/options.service";
+import * as Validators from "./Services/validators";
+import * as Payloads from "./Services/payloads";
+import * as DateUtils from "./Services/date.utils";
 
 const filter = createFilterOptions();
 
-function iso(d) {
-  return typeof d === "string" ? d : new Date(d).toISOString();
-}
-
-const AddMonthlyCosts = () => {
+export default function AddMonthlyCosts() {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
-  const api = useMemo(() => new ApiRequests(new ApiClient()), []);
 
-  // ====== Form State (MonthlyCosts erstellen) ======
+  // === API + Service ===
+  const api = useMemo(() => new ApiRequests(new ApiClient()), []);
+  const optionsSvc = useMemo(() => new OptionsService(api), [api]);
+
+  // === Form State ===
   const [name, setName] = useState("");
   const [userId, setUserId] = useState(null);
-  const [kontoId, setKontoId] = useState(null);
   const [kategorieId, setKategorieId] = useState(null);
   const [betrag, setBetrag] = useState("");
   const [active, setActive] = useState(true);
   const [startDatum, setStartDatum] = useState(
     new Date().toISOString().slice(0, 10)
   );
-  const [nextDue, setNextDue] = useState(new Date().toISOString().slice(0, 10));
+  const [nextDue, setNextDue] = useState(""); // optional; fällt sonst auf startDatum zurück
 
-  // ====== Options (Autocomplete) ======
+  // zwei Konto-Felder (Ausgang + Eingang)
+  const [kontoOutId, setKontoOutId] = useState(null);
+  const [kontoInId, setKontoInId] = useState(null);
+  const [inputKontoOut, setInputKontoOut] = useState("");
+  const [inputKontoIn, setInputKontoIn] = useState("");
+
+  // Wertpapier/Anteil (optional)
+  const [securityId, setSecurityId] = useState(null);
+  const [anteil, setAnteil] = useState("");
+
+  // === Options (Autocomplete) ===
   const [optUsers, setOptUsers] = useState([]);
   const [optKonten, setOptKonten] = useState([]);
   const [optCats, setOptCats] = useState([]);
+  const [optSecurities, setOptSecurities] = useState([]);
   const [inputUser, setInputUser] = useState("");
-  const [inputKonto, setInputKonto] = useState("");
   const [inputCat, setInputCat] = useState("");
   const [loadingOpts, setLoadingOpts] = useState(false);
 
-  // maps for Anzeige (id -> name)
+  // maps (id -> name) für Popover/Edit
   const [usersById, setUsersById] = useState({});
   const [kontenById, setKontenById] = useState({});
   const [catsById, setCatsById] = useState({});
+  const [securitiesById, setSecuritiesById] = useState({});
 
-  // debounce helper
-  const debounce = (fn, ms = 250) => {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
-    };
-  };
+  // === Optionen initial laden ===
+  const loadAllOptions = useCallback(async () => {
+    setLoadingOpts(true);
+    try {
+      const { options, maps } = await optionsSvc.loadAll({
+        includeSecurities: true,
+      });
+      setOptUsers(options.users);
+      setOptKonten(options.konten);
+      setOptCats(options.cats);
+      setOptSecurities(options.securities);
+      setUsersById(maps.usersById);
+      setKontenById(maps.kontenById);
+      setCatsById(maps.catsById);
+      setSecuritiesById(maps.securitiesById);
+    } finally {
+      setLoadingOpts(false);
+    }
+  }, [optionsSvc]);
 
-  const refreshOptions = useCallback(
-    debounce(async (u, k, c) => {
-      setLoadingOpts(true);
+  useEffect(() => {
+    loadAllOptions();
+  }, [loadAllOptions]);
+
+  // Live-Suche (debounced) nach Nutzereingaben
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
       try {
-        const [users, konten, cats] = await Promise.all([
-          api.searchOptions("users", u || ""),
-          api.searchOptions("konten", k || ""),
-          api.searchOptions("kategorien", c || ""),
-        ]);
-        setOptUsers(users ?? []);
-        setOptKonten(konten ?? []);
-        setOptCats(cats ?? []);
-        setUsersById(
-          Object.fromEntries((users ?? []).map((o) => [o.id, o.name]))
+        const { options, maps } = await optionsSvc.refreshOptions(
+          {
+            users: inputUser,
+            konten: inputKontoOut || inputKontoIn,
+            cats: inputCat,
+          },
+          true
         );
-        setKontenById(
-          Object.fromEntries((konten ?? []).map((o) => [o.id, o.name]))
-        );
-        setCatsById(
-          Object.fromEntries((cats ?? []).map((o) => [o.id, o.name]))
-        );
-      } finally {
-        setLoadingOpts(false);
+        if (!alive) return;
+        setOptUsers(options.users);
+        setOptKonten(options.konten);
+        setOptCats(options.cats);
+        setOptSecurities(options.securities);
+        setUsersById(maps.usersById);
+        setKontenById(maps.kontenById);
+        setCatsById(maps.catsById);
+        setSecuritiesById(maps.securitiesById);
+      } catch {
+        /* ignore */
       }
-    }, 250),
-    [api]
-  );
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [inputUser, inputKontoOut, inputKontoIn, inputCat, optionsSvc]);
 
+  // next_due automatisch vorbefüllen, solange der Nutzer nichts gesetzt hat
   useEffect(() => {
-    refreshOptions("", "", "");
-  }, [refreshOptions]);
+    if (!nextDue) setNextDue(startDatum);
+  }, [startDatum]);
 
-  useEffect(() => {
-    refreshOptions(inputUser, inputKonto, inputCat);
-  }, [inputUser, inputKonto, inputCat, refreshOptions]);
-
-  // ====== MonthlyCosts Liste + Kalender Events ======
+  // === MonthlyCosts Liste + Kalender ===
   const [monthlyCosts, setMonthlyCosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -137,41 +171,19 @@ const AddMonthlyCosts = () => {
     loadMonthlyCosts();
   }, [loadMonthlyCosts]);
 
-  // Kalender: Events nur für aktuellen Monat, basierend auf next_due
-  const [monthStart, monthEnd] = (() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    return [start, end];
-  })();
+  const [monthStart, monthEnd] = useMemo(
+    () => DateUtils.currentMonthRange(new Date()),
+    []
+  );
+  const events = useReactMemo(
+    () => buildMonthlyCostEvents(monthlyCosts, monthStart, monthEnd),
+    [monthlyCosts, monthStart, monthEnd]
+  );
 
-  const events = useMemo(() => {
-    return (monthlyCosts ?? [])
-      .filter((s) => {
-        const d = new Date(s.next_due);
-        return d >= monthStart && d <= monthEnd;
-      })
-      .map((s) => ({
-        id: String(s.id),
-        title: s.name,
-        start: s.next_due, // ISO from backend, siehe load_monthlycosts/select next_due :contentReference[oaicite:2]{index=2}
-        extendedProps: {
-          betrag: s.betrag,
-          konto_id: s.ausgangs_konto_id,
-          active: s.active,
-          kategorie_id: s.kategorie_id,
-        },
-        backgroundColor: s.active ? "#26a69a" : "#9e9e9e", // grün vs grau
-        borderColor: s.active ? "#26a69a" : "#9e9e9e",
-        textColor: "#fff", //colors.grey[100],
-      }));
-  }, [monthlyCosts, monthStart, monthEnd]);
-
-  // ====== Hover: alle Transaktionen des Tages in einem Popover ======
+  // === Hover-Popover ===
   const [hoverAnchor, setHoverAnchor] = useState(null);
   const [hoverDate, setHoverDate] = useState(null);
   const [hoverItems, setHoverItems] = useState([]);
-
   const openHover = Boolean(hoverAnchor);
 
   const handleEventMouseEnter = (info) => {
@@ -180,20 +192,18 @@ const AddMonthlyCosts = () => {
       d1.getFullYear() === d2.getFullYear() &&
       d1.getMonth() === d2.getMonth() &&
       d1.getDate() === d2.getDate();
-
     const items = events.filter((e) => sameDay(new Date(e.start), eventDate));
     setHoverItems(items);
     setHoverDate(eventDate);
     setHoverAnchor(info.el);
   };
-
   const handleEventMouseLeave = () => {
     setHoverAnchor(null);
     setHoverItems([]);
     setHoverDate(null);
   };
 
-  // ====== Klick: Edit-Dialog ======
+  // === Klick -> Edit ===
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
@@ -203,13 +213,11 @@ const AddMonthlyCosts = () => {
     if (!s) return;
     setEditItem({
       ...s,
-      // normalize date inputs to 'yyyy-mm-dd' for date fields
       start_datum_ui: s.start_datum?.slice(0, 10),
       next_due_ui: s.next_due?.slice(0, 10),
     });
     setEditOpen(true);
   };
-
   const closeEdit = () => {
     setEditOpen(false);
     setEditItem(null);
@@ -221,8 +229,10 @@ const AddMonthlyCosts = () => {
         user_id: editItem.user_id,
         name: editItem.name,
         kategorie_id: editItem.kategorie_id,
-        start_datum: iso(editItem.start_datum_ui),
-        next_due: iso(editItem.next_due_ui),
+        start_datum: DateUtils.isoDateTime(editItem.start_datum_ui),
+        next_due: DateUtils.isoDateTime(
+          editItem.next_due_ui || editItem.start_datum_ui
+        ),
         active: !!editItem.active,
         ausgangs_konto_id: editItem.ausgangs_konto_id ?? null,
         eingangs_konto_id: editItem.eingangs_konto_id ?? null,
@@ -231,52 +241,58 @@ const AddMonthlyCosts = () => {
         betrag: editItem.betrag ?? null,
       };
       await api.updateMonthlyCosts(editItem.id, payload);
-      setOk("Einrag aktualisiert.");
+      setOk("Eintrag aktualisiert.");
       closeEdit();
       loadMonthlyCosts();
     } catch (e) {
       console.error(e);
-      setErr("Aktualisieren Fehlgeschlagen");
+      setErr("Aktualisieren fehlgeschlagen");
     }
   };
 
-  // ====== Formular Submit (Create) ======
+  // === Anlegen ===
   const onCreate = async (e) => {
     e.preventDefault();
     setErr("");
     setOk("");
+
+    const errMsg = Validators.validateMonthlyCost({
+      userId,
+      name,
+      betrag,
+      kategorieId,
+      startDatum,
+      kontoOutId,
+      kontoInId,
+    });
+    if (errMsg) {
+      setErr(errMsg);
+      return;
+    }
+
     try {
-      if (
-        !userId ||
-        !kontoId ||
-        !kategorieId ||
-        !name ||
-        !nextDue ||
-        !startDatum
-      ) {
-        setErr(
-          "Bitte alle Pflichtfelder ausfüllen. Pflichtfelder sind: User, Konto, Kategorie, Name, Startdatum und nächste Ausführung"
-        );
-        return;
-      }
-      const payload = {
-        user_id: userId,
+      const payload = Payloads.toPayloadMonthlyCost({
+        userId,
         name,
-        kategorie_id: kategorieId,
-        start_datum: iso(startDatum),
-        next_due: iso(nextDue),
-        active: !!active,
-        ausgangs_konto_id: kontoId,
-        betrag: betrag ? Number(betrag) : null,
-        eingangs_konto_id: null,
-        aktien_id: null,
-        anteil: null,
-      };
+        kategorieId,
+        startDatum,
+        nextDue,
+        active,
+        kontoOutId,
+        kontoInId,
+        betrag,
+        securityId,
+        anteil,
+      });
       await api.createMonthlyCosts(payload);
       setOk("Fixkosten angelegt");
+      // reset
       setName("");
       setBetrag("");
       setKategorieId(null);
+      setKontoOutId(null);
+      setKontoInId(null);
+      setNextDue("");
       loadMonthlyCosts();
     } catch (e2) {
       console.error(e2);
@@ -284,8 +300,22 @@ const AddMonthlyCosts = () => {
     }
   };
 
-  // ====== Kategorie-Autocomplete mit „Neu erstellen“ ======
-  const renderKategorie = (
+  // === Autocompletes ===
+  const UserAutocomplete = (
+    <Autocomplete
+      options={optUsers}
+      value={optUsers.find((o) => o.id === userId) ?? null}
+      inputValue={inputUser}
+      onInputChange={(_, v) => setInputUser(v)}
+      getOptionLabel={(o) => o?.name ?? ""}
+      onChange={(_, v) => setUserId(v?.id ?? null)}
+      filterOptions={(x) => x}
+      openOnFocus
+      renderInput={(p) => <TextField {...p} label="User" required />}
+    />
+  );
+
+  const KategorieAutocomplete = (
     <Autocomplete
       options={optCats}
       value={optCats.find((o) => o.id === kategorieId) ?? null}
@@ -308,13 +338,9 @@ const AddMonthlyCosts = () => {
         return filtered;
       }}
       onChange={async (_, newVal) => {
-        if (!newVal) {
-          setKategorieId(null);
-          return;
-        }
+        if (!newVal) return setKategorieId(null);
         if (newVal.__create) {
-          //Nur Kategorien "ensure"-n (User/Konto Nicht hier erstellen)
-          const created = await api.ensureOption("kategorien", newVal.__create);
+          const created = await optionsSvc.ensureKategorie(newVal.__create);
           setOptCats((prev) => [created, ...prev]);
           setCatsById((prev) => ({ ...prev, [created.id]: created.name }));
           setKategorieId(created.id);
@@ -322,43 +348,82 @@ const AddMonthlyCosts = () => {
           setKategorieId(newVal.id);
         }
       }}
+      openOnFocus
       renderInput={(params) => (
         <TextField {...params} label="Kategorie" required />
       )}
     />
   );
 
-  // ====== User/Konto Autocomplete (ohne Neu-Erstellen) ======
-  const renderUser = (
+  const KontoOutAutocomplete = (
     <Autocomplete
-      options={optUsers}
-      value={optUsers.find((o) => o.id === userId) ?? null}
-      inputValue={inputUser}
-      onInputChange={(_, v) => setInputUser(v)}
+      options={optKonten}
+      value={optKonten.find((o) => o.id === kontoOutId) ?? null}
+      inputValue={inputKontoOut}
+      onInputChange={(_, v) => setInputKontoOut(v)}
       getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setUserId(v?.id ?? null)}
+      onChange={(_, v) => setKontoOutId(v?.id ?? null)}
       filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="User" required />}
+      openOnFocus
+      renderInput={(p) => (
+        <TextField
+          {...p}
+          label="Ausgangs‑Konto"
+          error={!kontoOutId && !kontoInId}
+          helperText="Mindestens eines der beiden Konto‑Felder muss befüllt sein"
+        />
+      )}
     />
   );
 
-  const renderKonto = (
+  const KontoInAutocomplete = (
     <Autocomplete
       options={optKonten}
-      value={optKonten.find((o) => o.id === kontoId) ?? null}
-      inputValue={inputKonto}
-      onInputChange={(_, v) => setInputKonto(v)}
+      value={optKonten.find((o) => o.id === kontoInId) ?? null}
+      inputValue={inputKontoIn}
+      onInputChange={(_, v) => setInputKontoIn(v)}
       getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setKontoId(v?.id ?? null)}
+      onChange={(_, v) => setKontoInId(v?.id ?? null)}
       filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="Ausgangs-Konto" required />}
+      openOnFocus
+      renderInput={(p) => (
+        <TextField
+          {...p}
+          label="Eingangs‑Konto"
+          error={!kontoOutId && !kontoInId}
+          helperText="Mindestens eines der beiden Konto‑Felder muss befüllt sein"
+        />
+      )}
     />
   );
+
+  // === Custom Event Content: Name + farbiger Punkt (aktiv/inaktiv) ===
+  const renderEventContent = (arg) => {
+    const activeFlag = !!arg.event.extendedProps.active;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span
+          aria-label={activeFlag ? "aktiv" : "inaktiv"}
+          title={activeFlag ? "aktiv" : "inaktiv"}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: activeFlag ? "#26a69a" : "#9e9e9e",
+            display: "inline-block",
+          }}
+        />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+          {arg.event.title}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Header title="New Monthly Cost" subtitle="Add a newe Monthly Cost" />
+        <Header title="New Monthly Cost" subtitle="Add a new Monthly Cost" />
       </Box>
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
@@ -373,9 +438,8 @@ const AddMonthlyCosts = () => {
         </Alert>
       )}
 
-      {/* Zweispaltiges Layout */}
       <Grid container spacing={3}>
-        {/* LINKE SEITE FORMULAR */}
+        {/* Linke Spalte: Formular */}
         <Grid item xs={12} md={6}>
           <Paper
             sx={{
@@ -398,16 +462,39 @@ const AddMonthlyCosts = () => {
                   onChange={(e) => setName(e.target.value)}
                   required
                 />
-                {renderUser}
-                {renderKonto}
-                {renderKategorie}
+                {UserAutocomplete}
+                {KontoOutAutocomplete}
+                {KontoInAutocomplete}
+                {KategorieAutocomplete}
 
                 <TextField
-                  label="Betrag"
+                  label="Betrag (€)"
                   type="number"
                   inputProps={{ step: "0.01" }}
                   value={betrag}
                   onChange={(e) => setBetrag(e.target.value)}
+                  required
+                />
+
+                {/* Optional: Wertpapier + Anteil */}
+                <Autocomplete
+                  options={optSecurities}
+                  value={optSecurities.find((o) => o.id === securityId) ?? null}
+                  onChange={(_, v) => setSecurityId(v?.id ?? null)}
+                  getOptionLabel={(o) => o?.name ?? ""}
+                  filterOptions={(x) => x}
+                  openOnFocus
+                  renderInput={(p) => (
+                    <TextField {...p} label="Wertpapier (optional)" />
+                  )}
+                />
+
+                <TextField
+                  label="Anteil (optional)"
+                  type="number"
+                  inputProps={{ step: "0.0001" }}
+                  value={anteil}
+                  onChange={(e) => setAnteil(e.target.value)}
                 />
 
                 <Stack direction="row" spacing={2}>
@@ -421,12 +508,11 @@ const AddMonthlyCosts = () => {
                     sx={{ flex: 1 }}
                   />
                   <TextField
-                    label="Nächste Ausführung"
+                    label="Nächste Ausführung (optional)"
                     type="date"
                     value={nextDue}
                     onChange={(e) => setNextDue(e.target.value)}
                     InputLabelProps={{ shrink: true }}
-                    required
                     sx={{ flex: 1 }}
                   />
                 </Stack>
@@ -452,8 +538,7 @@ const AddMonthlyCosts = () => {
           </Paper>
         </Grid>
 
-        {/* RECHTE SEITE KALEDNER */}
-
+        {/* Rechte Spalte: Kalender */}
         <Grid item xs={12} md={6}>
           <Paper
             sx={{
@@ -473,47 +558,67 @@ const AddMonthlyCosts = () => {
               initialView="dayGridMonth"
               height="auto"
               events={events}
+              eventContent={renderEventContent}
               eventMouseEnter={handleEventMouseEnter}
               eventMouseLeave={handleEventMouseLeave}
               eventClick={openEditForEvent}
               dayMaxEventRows={3}
-              headerToolbar={{
-                left: "title",
-                center: "",
-                right: "",
-              }}
+              headerToolbar={{ left: "title", center: "", right: "" }}
             />
 
-            {/* Hover-Popover: alle Transaktionen an dem Tag */}
             <Popover
               open={openHover}
               anchorEl={hoverAnchor}
               onClose={() => setHoverAnchor(null)}
               anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
             >
-              <Box sx={{ p: 2, maxWidth: 360 }}>
+              <Box sx={{ p: 2, maxWidth: 380 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {hoverDate ? hoverDate.toLocaleDateString() : "Transaktionen"}
+                  {hoverDate ? hoverDate.toLocaleDateString() : "Details"}
                 </Typography>
                 <List dense>
-                  {hoverItems.map((e) => (
-                    <ListItem key={e.id} sx={{ py: 0.5 }}>
-                      <ListItemText
-                        primary={e.title}
-                        secondary={[
-                          e.extendedProps?.betrag != null
-                            ? `Betrag: ${Number(e.extendedProps.betrag).toFixed(2)}€`
-                            : null,
-                          e.extendedProps?.konto_id
-                            ? `Konto: ${kontenById[e.extendedProps.konto_id] ?? e.extendedProps.konto_id}`
-                            : null,
-                          e.extendedProps?.active ? "Aktiv" : "Inaktiv",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      />
-                    </ListItem>
-                  ))}
+                  {hoverItems.map((e) => {
+                    const xp = e.extendedProps || {};
+                    return (
+                      <ListItem key={e.id} sx={{ py: 0.75 }}>
+                        <ListItemText
+                          primary={e.title}
+                          secondary={[
+                            xp.betrag != null
+                              ? `Betrag: ${Number(xp.betrag).toFixed(2)}€`
+                              : null,
+                            xp.kategorie_id
+                              ? `Kategorie: ${catsById[xp.kategorie_id] ?? xp.kategorie_id}`
+                              : null,
+                            xp.ausgangs_konto_id
+                              ? `Ausgang: ${kontenById[xp.ausgangs_konto_id] ?? xp.ausgangs_konto_id}`
+                              : null,
+                            xp.eingangs_konto_id
+                              ? `Eingang: ${kontenById[xp.eingangs_konto_id] ?? xp.eingangs_konto_id}`
+                              : null,
+                            xp.aktien_id
+                              ? `Wertpapier: ${securitiesById[xp.aktien_id] ?? xp.aktien_id}`
+                              : null,
+                            xp.anteil != null
+                              ? `Anteil: ${Number(xp.anteil)}`
+                              : null,
+                            xp.user_id
+                              ? `User: ${usersById[xp.user_id] ?? xp.user_id}`
+                              : null,
+                            xp.start_datum
+                              ? `Start: ${new Date(xp.start_datum).toLocaleDateString("de-DE")}`
+                              : null,
+                            xp.next_due
+                              ? `Nächste: ${new Date(xp.next_due).toLocaleDateString("de-DE")}`
+                              : null,
+                            xp.active ? "Aktiv" : "Inaktiv",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               </Box>
             </Popover>
@@ -534,7 +639,6 @@ const AddMonthlyCosts = () => {
                   setEditItem((p) => ({ ...p, name: e.target.value }))
                 }
               />
-
               <TextField
                 label="Betrag (€)"
                 type="number"
@@ -547,6 +651,34 @@ const AddMonthlyCosts = () => {
                       e.target.value === "" ? null : Number(e.target.value),
                   }))
                 }
+              />
+              <TextField
+                label="Anteil"
+                type="number"
+                inputProps={{ step: "0.0001" }}
+                value={editItem.anteil ?? ""}
+                onChange={(e) =>
+                  setEditItem((p) => ({
+                    ...p,
+                    anteil:
+                      e.target.value === "" ? null : Number(e.target.value),
+                  }))
+                }
+              />
+
+              <Autocomplete
+                options={optSecurities}
+                value={
+                  optSecurities.find((o) => o.id === editItem.aktien_id) ?? null
+                }
+                getOptionLabel={(o) => o?.name ?? ""}
+                onChange={(_, v) =>
+                  setEditItem((p) => ({ ...p, aktien_id: v?.id ?? null }))
+                }
+                filterOptions={(x) => x}
+                renderInput={(p) => (
+                  <TextField {...p} label="Wertpapier (optional)" />
+                )}
               />
 
               <TextField
@@ -567,7 +699,6 @@ const AddMonthlyCosts = () => {
                 }
                 InputLabelProps={{ shrink: true }}
               />
-
               <FormControlLabel
                 control={
                   <Checkbox
@@ -591,6 +722,4 @@ const AddMonthlyCosts = () => {
       </Dialog>
     </Box>
   );
-};
-
-export default AddMonthlyCosts;
+}
