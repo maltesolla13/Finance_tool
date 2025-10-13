@@ -35,6 +35,7 @@ import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+import { buildMonthlyCostEvents } from "./Services/calendar.utils";
 import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
