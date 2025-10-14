@@ -111,7 +111,7 @@ class SchemaSparziel:
     kategorie_id: int
     betrag: Decimal
     start_datum: datetime
-    next_due: datetime
+    end_datum: datetime
     sparrate_e: Decimal
     sparrate_p: Decimal
     verwendungszweck: str

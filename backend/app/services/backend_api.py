@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
-    SchemaOption, SchemaSecurities, SchemaLaden
+    SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel
 
 
 class BackendRoutes:
@@ -544,6 +544,64 @@ class BackendRoutes:
             finally:
                 db.close()
 
+        # ---- Savings ----
+        def get_savings() -> List[SchemaSparziel]:
+            db = DBHandler()
+            try:
+                rows = db.load_savings()
+                return [
+                    SchemaSparziel(
+                        id=r["id"],
+                        name=r["name"],
+                        isin=r["isin"],
+                        ticker=r["ticker"],
+                        instrument=r["instrument"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_savings(payload: SchemaSparziel) -> None:
+            db = DBHandler()
+            try:
+                db.insert_savings(payload)
+            finally:
+                db.close()
+
+        def update_savings(
+                savings_id: int,
+                payload: SchemaSparziel
+        ) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_savings()]
+                if savings_id not in ids:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="savings nicht gefunden"
+                    )
+                from types import SimpleNamespace
+                db.update_savings(
+                    SimpleNamespace(
+                        id=savings_id, **payload.__dict__))
+            finally:
+                db.close()
+
+        def delete_savings(savings_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM savings WHERE id = ?",
+                    (savings_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="savings nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
         # ---- Registry: alles an EINER Stelle deklarieren ----
         resources = [
             ("konten", SchemaKonto, SchemaKonto, get_konto, create_konto,
@@ -570,6 +628,10 @@ class BackendRoutes:
             ("securities", SchemaSecurities, SchemaSecurities,
              get_securities, create_securities, update_securities,
              delete_securities, "Securities"),
+
+            ("savings", SchemaSparziel, SchemaSparziel,
+             get_savings, create_savings, update_savings,
+             delete_savings, "Savings"),
 
         ]
 

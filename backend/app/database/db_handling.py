@@ -742,7 +742,7 @@ class DBHandler:
         -----
         savings: Ein Objekt mit Attribut
             'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
-            'start_datum', 'next_due', 'sparrate_e', 'sparrate_p',
+            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p',
             'verwendungszweck'
 
         Response
@@ -751,7 +751,7 @@ class DBHandler:
         """
         self.cursor.execute("""
             INSERT INTO savings (user_id, ausgangs_konto_id, kategorie_id,
-                            betrag, start_datum, next_due, sparrate_e,
+                            betrag, start_datum, end_datum, sparrate_e,
                             sparrate_p, verwendungszweck)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -760,7 +760,7 @@ class DBHandler:
             savings.kategorie_id,
             _num(savings.betrag),
             _dt(savings.start_datum),
-            _dt(savings.next_due),
+            _dt(savings.end_datum),
             _num(savings.sparrate_e),
             _num(savings.sparrate_p),
             savings.verwendungszweck
@@ -779,11 +779,11 @@ class DBHandler:
         --------
         List[Tuple[int, int, int, float, str, str, float, float, str]]
             Liste mit Tupeln (user_id, ausgangs_konto_id, kategorie_id, betrag,
-            start_datum, next_due, sparrate_e, sparrate_p,
+            start_datum, end_datum, sparrate_e, sparrate_p,
             verwendungszweck) des savings
         """
         self.cursor.execute("SELECT user_id, ausgangs_konto_id, kategorie_id,\
-                            betrag, start_datum, next_due, sparrate_e,\
+                            betrag, start_datum, end_datum, sparrate_e,\
                             sparrate_p, verwendungszweck\
                             FROM savings")
         savings = self.cursor.fetchall()
@@ -798,7 +798,7 @@ class DBHandler:
         -----
         savings: Ein Objekt mit Attributen
             'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
-            'start_datum', 'next_due', 'sparrate_e', 'sparrate_p',
+            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p',
             'verwendungszweck'
 
         Response
@@ -812,7 +812,7 @@ class DBHandler:
                 kategorie_id = ?,
                 betrag = ?,
                 start_datum = ?,
-                next_due = ?,
+                end_datum = ?,
                 sparrate_e = ?,
                 sparrate_p = ?,
                 verwendungszweck = ?
@@ -823,7 +823,7 @@ class DBHandler:
             savings.kategorie_id,
             _num(savings.betrag),
             _dt(savings.start_datum),
-            _dt(savings.next_due),
+            _dt(savings.end_datum),
             _num(savings.sparrate_e),
             _num(savings.sparrate_p),
             savings.verwendungszweck,

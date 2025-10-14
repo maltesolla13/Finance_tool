@@ -158,7 +158,7 @@ def init_db():
         kategorie_id INTEGER,
         betrag REAL, -- optional
         start_datum TEXT NOT NULL,
-        next_due TEXT NOT NULL,
+        end_datum TEXT NOT NULL,
         sparrate_e INTEGER,
         sparrate_p INTEGER,
         verwendungszweck TEXT NOT NULL,
