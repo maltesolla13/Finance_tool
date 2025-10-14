@@ -154,17 +154,16 @@ def init_db():
     CREATE TABLE IF NOT EXISTS savings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        ausgangs_konto_id INTEGER,
+        konto_id INTEGER,
         kategorie_id INTEGER,
         betrag REAL, -- optional
         start_datum TEXT NOT NULL,
         end_datum TEXT NOT NULL,
         sparrate_e INTEGER,
         sparrate_p INTEGER,
-        verwendungszweck TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
-        FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id)
+        FOREIGN KEY (konto_id) REFERENCES konten(id)
     )
     """)
 

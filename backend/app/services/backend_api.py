@@ -552,10 +552,14 @@ class BackendRoutes:
                 return [
                     SchemaSparziel(
                         id=r["id"],
-                        name=r["name"],
-                        isin=r["isin"],
-                        ticker=r["ticker"],
-                        instrument=r["instrument"],
+                        user_id=r["user_id"],
+                        konto_id=["konto_id"],
+                        kategorie_id=["kategorie_id"],
+                        betrag=["betrag"],
+                        start_datum=["datum"],
+                        end_datum=["datum"],
+                        sparrate_e=["betrag"],
+                        sparrate_p=["betrag"],
                     )
                     for r in rows
                 ]

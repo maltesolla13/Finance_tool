@@ -741,29 +741,27 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attribut
-            'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
-            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p',
-            'verwendungszweck'
+            'user_id', 'konto_id', 'kategorie_id', 'betrag',
+            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO savings (user_id, ausgangs_konto_id, kategorie_id,
+            INSERT INTO savings (user_id, konto_id, kategorie_id,
                             betrag, start_datum, end_datum, sparrate_e,
-                            sparrate_p, verwendungszweck)
+                            sparrate_p)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             savings.user_id,
-            savings.ausgangs_konto_id,
+            savings.konto_id,
             savings.kategorie_id,
             _num(savings.betrag),
             _dt(savings.start_datum),
             _dt(savings.end_datum),
             _num(savings.sparrate_e),
-            _num(savings.sparrate_p),
-            savings.verwendungszweck
+            _num(savings.sparrate_p)
         ))
 
     def load_savings(self) -> list[SchemaSparziel]:
@@ -777,15 +775,13 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, int, float, str, str, float, float, str]]
-            Liste mit Tupeln (user_id, ausgangs_konto_id, kategorie_id, betrag,
-            start_datum, end_datum, sparrate_e, sparrate_p,
-            verwendungszweck) des savings
+        List[Tuple[int, int, int, float, str, str, float, float]]
+            Liste mit Tupeln (user_id, konto_id, kategorie_id, betrag,
+            start_datum, end_datum, sparrate_e, sparrate_p,) des savings
         """
-        self.cursor.execute("SELECT user_id, ausgangs_konto_id, kategorie_id,\
+        self.cursor.execute("SELECT user_id, konto_id, kategorie_id,\
                             betrag, start_datum, end_datum, sparrate_e,\
-                            sparrate_p, verwendungszweck\
-                            FROM savings")
+                            sparrate_p FROM savings")
         savings = self.cursor.fetchall()
         return savings
 
@@ -797,9 +793,8 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attributen
-            'user_id', 'ausgangs_konto_id', 'kategorie_id', 'betrag',
-            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p',
-            'verwendungszweck'
+            'user_id', 'konto_id', 'kategorie_id', 'betrag',
+            'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p'
 
         Response
         --------
@@ -808,25 +803,23 @@ class DBHandler:
         self.cursor.execute("""
             UPDATE savings
             SET user_id = ?,
-                ausgangs_konto_id = ?,
+                konto_id = ?,
                 kategorie_id = ?,
                 betrag = ?,
                 start_datum = ?,
                 end_datum = ?,
                 sparrate_e = ?,
-                sparrate_p = ?,
-                verwendungszweck = ?
+                sparrate_p = ?
             WHERE id = ?
         """, (
             savings.user_id,
-            savings.ausgangs_konto_id,
+            savings.konto_id,
             savings.kategorie_id,
             _num(savings.betrag),
             _dt(savings.start_datum),
             _dt(savings.end_datum),
             _num(savings.sparrate_e),
             _num(savings.sparrate_p),
-            savings.verwendungszweck,
             savings.id
         ))
 

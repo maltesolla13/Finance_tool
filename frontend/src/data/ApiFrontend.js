@@ -94,4 +94,18 @@ export class ApiRequests {
   deleteMonthlyCosts(id) {
     return this.api.delete(`/monthlycosts/${id}`);
   }
+
+  // Savings
+  listSavings() {
+    return this.api.get("/savings");
+  }
+  createSavings(data) {
+    return this.api.post("/savings", data);
+  }
+  updateSavings(id, data) {
+    return this.api.put(`/savings/${id}`, data);
+  }
+  deleteSavings(id) {
+    return this.api.delete(`/savings/${id}`);
+  }
 }

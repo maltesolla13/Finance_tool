@@ -14,7 +14,6 @@ import {
   ListItemText,
   useTheme,
 } from "@mui/material";
-//import { useTheme } from "@mui/material/styles";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { ApiError } from "../../data/ApiErrors";

@@ -107,14 +107,13 @@ class SchemaDepotstand:
 @dataclass
 class SchemaSparziel:
     user_id: int
-    ausgangs_konto_id: int
+    konto_id: int
     kategorie_id: int
     betrag: Decimal
     start_datum: datetime
     end_datum: datetime
     sparrate_e: Decimal
     sparrate_p: Decimal
-    verwendungszweck: str
     id: Optional[int] = None
 
 
