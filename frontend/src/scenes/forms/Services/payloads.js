@@ -1,26 +1,38 @@
-import { toNumber, toNumberOrNull } from "./number.utils";
-import { toISODate, isoDateTime } from "./date.utils";
+import * as NumberUtils from "./number.utils";
+import * as DateUtils from "./date.utils";
 
 export const toPayloadReceipt = (s) => ({
   user_id: s.userId,
-  name: (s.name || "").trim(),
-  betrag: toNumber(s.betrag),
+  name: String(s.name || "").trim(),
+  betrag: NumberUtils.toNumber(s.betrag),
   kategorie_id: s.kategorieId,
   konto_id: s.kontoId,
   laden_id: s.ladenId,
-  datum: toISODate(s.datum),
+  datum: DateUtils.toISODate(s.datum),
 });
 
-export const toPayloadMonthlyCost = (s) => ({
-  user_id: s.userId,
-  name: (s.name || "").trim(),
-  kategorie_id: s.kategorieId,
-  start_datum: isoDateTime(s.startDatum),
-  next_due: isoDateTime(s.nextDue || s.startDatum),
-  active: !!s.active,
-  ausgangs_konto_id: s.kontoOutId ?? null,
-  eingangs_konto_id: s.kontoInId ?? null,
-  betrag: toNumber(s.betrag),
-  aktien_id: s.securityId ?? null,
-  anteil: toNumberOrNull(s.anteil),
+export const toPayloadMonthlyCost = ({
+  userId,
+  name,
+  kategorieId,
+  startDatum,
+  nextDue,
+  active,
+  kontoOutId,
+  kontoInId,
+  betrag,
+  securityId,
+  anteil,
+}) => ({
+  user_id: userId,
+  name: String(name || "").trim(),
+  kategorie_id: kategorieId,
+  ausgangs_konto_id: kontoOutId ?? null,
+  eingangs_konto_id: kontoInId ?? null,
+  betrag: NumberUtils.toNumberOrNull(betrag),
+  anteil: NumberUtils.toNumberOrNull(anteil),
+  securities_id: securityId ?? null,
+  start_datum: DateUtils.isoDateTime(startDatum),
+  next_due: DateUtils.isoDateTime(nextDue || startDatum),
+  active: !!active,
 });

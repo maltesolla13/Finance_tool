@@ -237,7 +237,7 @@ export default function AddMonthlyCosts() {
         active: !!editItem.active,
         ausgangs_konto_id: editItem.ausgangs_konto_id ?? null,
         eingangs_konto_id: editItem.eingangs_konto_id ?? null,
-        aktien_id: editItem.aktien_id ?? null,
+        securities_id: editItem.securities_id ?? null,
         anteil: editItem.anteil ?? null,
         betrag: editItem.betrag ?? null,
       };
@@ -285,9 +285,9 @@ export default function AddMonthlyCosts() {
         securityId,
         anteil,
       });
+      console.log("POST /monthlycosts payload", payload);
       await api.createMonthlyCosts(payload);
       setOk("Fixkosten angelegt");
-      // reset
       setName("");
       setBetrag("");
       setKategorieId(null);
@@ -474,7 +474,11 @@ export default function AddMonthlyCosts() {
                   inputProps={{ step: "0.01" }}
                   value={betrag}
                   onChange={(e) => setBetrag(e.target.value)}
-                  required
+                  helperText={
+                    securityId
+                      ? "Bei Wertpapier: Betrag ODER Anteil angeben."
+                      : "Ohne Wertpapier ist Betrag erforderlich."
+                  }
                 />
 
                 {/* Optional: Wertpapier + Anteil */}
@@ -597,8 +601,8 @@ export default function AddMonthlyCosts() {
                             xp.eingangs_konto_id
                               ? `Eingang: ${kontenById[xp.eingangs_konto_id] ?? xp.eingangs_konto_id}`
                               : null,
-                            xp.aktien_id
-                              ? `Wertpapier: ${securitiesById[xp.aktien_id] ?? xp.aktien_id}`
+                            xp.securities_id
+                              ? `Wertpapier: ${securitiesById[xp.securities_id] ?? xp.securities_id}`
                               : null,
                             xp.anteil != null
                               ? `Anteil: ${Number(xp.anteil)}`
@@ -670,11 +674,12 @@ export default function AddMonthlyCosts() {
               <Autocomplete
                 options={optSecurities}
                 value={
-                  optSecurities.find((o) => o.id === editItem.aktien_id) ?? null
+                  optSecurities.find((o) => o.id === editItem.securities_id) ??
+                  null
                 }
                 getOptionLabel={(o) => o?.name ?? ""}
                 onChange={(_, v) =>
-                  setEditItem((p) => ({ ...p, aktien_id: v?.id ?? null }))
+                  setEditItem((p) => ({ ...p, securities_id: v?.id ?? null }))
                 }
                 filterOptions={(x) => x}
                 renderInput={(p) => (

@@ -51,7 +51,7 @@ class SchemaSecurities:
 
 @dataclass
 class SchemaAktienKurs:
-    aktien_id: int
+    securities_id: int
     kurs: Decimal
     datum: datetime
     id: Optional[int] = None
@@ -82,7 +82,7 @@ class SchemaKontostand:
 class SchemaDepotbewegung:
     user_id: int
     konto_id: int
-    aktien_id: int
+    securities_id: int
     kategorie_id: int
     type_id: int
     betrag: Decimal
@@ -95,7 +95,7 @@ class SchemaDepotbewegung:
 class SchemaDepotstand:
     user_id: int
     konto_id: int
-    aktien_id: int
+    securities_id: int
     summe_betrag: Decimal
     summe_anteil: Decimal
     wert: Decimal
@@ -129,7 +129,7 @@ class SchemaMonthlyCosts:
     id: Optional[int] = None
     ausgangs_konto_id: Optional[int] = None
     eingangs_konto_id: Optional[int] = None
-    aktien_id: Optional[int] = None
+    securities_id: Optional[int] = None
     anteil: Optional[Decimal] = None
     betrag: Optional[Decimal] = None
 

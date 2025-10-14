@@ -315,7 +315,7 @@ class BackendRoutes:
                         name=r["name"],
                         betrag=r["betrag"],
                         anteil=r["anteil"],
-                        aktien_id=r["aktien_id"],
+                        securities_id=r["securities_id"],
                         kategorie_id=r["kategorie_id"],
                         ausgangs_konto_id=r["ausgangs_konto_id"],
                         eingangs_konto_id=r["eingangs_konto_id"],
@@ -331,7 +331,64 @@ class BackendRoutes:
         def create_monthlycosts(payload: SchemaMonthlyCosts) -> None:
             db = DBHandler()
             try:
-                db.insert_monthlycosts(payload)
+                p = SimpleNamespace(**payload.__dict__)
+
+                # Normalisieren
+                p.user_id = int(p.user_id) if p.user_id is not None else None
+                p.kategorie_id = (
+                    int(p.kategorie_id)
+                    if p.kategorie_id is not None
+                    else None)
+                p.ausgangs_konto_id = (
+                    int(p.ausgangs_konto_id)
+                    if p.ausgangs_konto_id
+                    else None)
+                p.eingangs_konto_id = (
+                    int(p.eingangs_konto_id)
+                    if p.eingangs_konto_id
+                    else None)
+                p.securities_id = (
+                    int(p.securities_id)
+                    if p.securities_id
+                    else None)
+                p.active = 1 if bool(p.active) else 0
+                if not p.next_due:
+                    p.next_due = p.start_datum  # fallback
+
+                # FK-Existenz-Checks
+                def exists(table, id_):
+                    if id_ is None:
+                        return True
+                    row = db.cursor.execute(
+                        f"SELECT 1 FROM {table} WHERE id=?", (id_,)).fetchone()
+                    return row is not None
+
+                if not exists("user", p.user_id):
+                    raise HTTPException(400, detail="Unbekannter user_id")
+                if not exists("kategorien", p.kategorie_id):
+                    raise HTTPException(400, detail="Unbekannter kategorie_id")
+                if p.ausgangs_konto_id and not exists(
+                        "konten", p.ausgangs_konto_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter ausgangs_konto_id")
+                if p.eingangs_konto_id and not exists(
+                        "konten", p.eingangs_konto_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter eingangs_konto_id")
+                if (
+                    p.securities_id
+                    and not exists(
+                        "securities", p.securities_id)):
+                    raise HTTPException(
+                        400, detail="Unbekannter securities_id (Wertpapier)")
+
+                if p.securities_id and (p.betrag is None and p.anteil is None):
+                    raise HTTPException(
+                        400, detail="Bei Wertpapier bitte"
+                        "Betrag oder Anteil angeben.")
+
+                db.insert_monthlycosts(p)
+                db.conn.commit()
             finally:
                 db.close()
 

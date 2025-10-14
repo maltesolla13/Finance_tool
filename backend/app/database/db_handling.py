@@ -323,7 +323,7 @@ class DBHandler:
 
         Input
         -----
-        aktieninfo: Ein Objekt mit Attribut
+        Securities: Ein Objekt mit Attribut
             'name', 'isin', 'ticker', 'instrument'
 
         Response
@@ -373,7 +373,7 @@ class DBHandler:
         --------
         List[Tuple[int, str, str, str, str]]
             Liste mit Tupeln (id, name, isin, ticker, instrument)
-            der aktieninfo
+            der Securities
         """
         self.cursor.execute("SELECT id, name, isin, ticker, instrument\
                             FROM securities")
@@ -387,17 +387,17 @@ class DBHandler:
         Input
         -----
         kurs: Ein Objekt mit Attribut
-            'aktien_id', 'kurs', 'datum'
+            'securities_id', 'kurs', 'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO kurs (aktien_id, kurs, datum)
+            INSERT INTO kurs (securities_id, kurs, datum)
             VALUES (?, ?, ?)
         """, (
-            kurs.aktien_id,
+            kurs.securities_id,
             _num(kurs.kurs),
             _dt(kurs.datum)
         ))
@@ -414,9 +414,9 @@ class DBHandler:
         Response
         --------
         List[Tuple[int, int, float, str]]
-            Liste mit Tupeln (id, aktien_id, kurs, datum) des kurses
+            Liste mit Tupeln (id, securities_id, kurs, datum) des kurses
         """
-        self.cursor.execute("SELECT id, aktien_id, kurs, datum FROM kurs")
+        self.cursor.execute("SELECT id, securities_id, kurs, datum FROM kurs")
         kurs = self.cursor.fetchall()
         return kurs
 
@@ -528,7 +528,7 @@ class DBHandler:
         Input
         -----
         depotbewegung: Ein Objekt mit Attribut
-            'user_id', 'konto_id', 'aktien_id', 'kategorie_id', 'type_id',
+            'user_id', 'konto_id', 'securities_id', 'kategorie_id', 'type_id',
             'betrag', 'anteile', 'datum'
 
         Response
@@ -536,13 +536,13 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO depotbewegung (user_id, konto_id, aktien_id,
+            INSERT INTO depotbewegung (user_id, konto_id, securities_id,
                     kategorie_id, type_id, betrag, anteile, datum)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             depotbewegung.user_id,
             depotbewegung.konto_id,
-            depotbewegung.aktien_id,
+            depotbewegung.securities_id,
             depotbewegung.kategorie_id,
             depotbewegung.type_id,
             _num(depotbewegung.betrag),
@@ -562,10 +562,10 @@ class DBHandler:
         Response
         --------
         List[Tuple[int, int, int, int, int, int float, float, str]]
-            Liste mit Tupeln (user_id, konto_id, aktien_id, kategorie_id,
+            Liste mit Tupeln (user_id, konto_id, securities_id, kategorie_id,
                     type_id, betrag, anteile, datum) des depotbewegung
         """
-        self.cursor.execute("SELECT id, user_id, konto_id, aktien_id,\
+        self.cursor.execute("SELECT id, user_id, konto_id, securities_id,\
                              kategorie_id, type_id, betrag, anteile,\
                             datum FROM depotbewegung")
         depotbewegung = self.cursor.fetchall()
@@ -581,22 +581,22 @@ class DBHandler:
         Input
         -----
         depotstand: Ein Objekt mit Attribut
-            'user_id', 'konto_id', 'aktien_id', 'summe_betrag', 'summe_anteil',
-             'wert', 'entwicklung', 'datum'
+            'user_id', 'konto_id', 'securities_id', 'summe_betrag',
+            'summe_anteil', 'wert', 'entwicklung', 'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO depotstand (user_id, konto_id, aktien_id,\
+            INSERT INTO depotstand (user_id, konto_id, securities_id,\
                             summe_betrag, summe_anteil, wert, entwicklung,\
                             datum)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             depotstand.user_id,
             depotstand.konto_id,
-            depotstand.aktien_id,
+            depotstand.securities_id,
             _num(depotstand.summe_betrag),
             _num(depotstand.summe_anteil),
             _num(depotstand.wert),
@@ -616,10 +616,11 @@ class DBHandler:
         Response
         --------
         List[Tuple[int, int, int, int, float, float, float, float, str]]
-            Liste mit Tupeln (id, user_id, konto_id, aktien_id, summe_betrag,
-            summe_anteil, wert, entwicklung, datum) des depotstand
+            Liste mit Tupeln (id, user_id, konto_id, securities_id,
+            summe_betrag, summe_anteil, wert, entwicklung, datum)
+            des depotstand
         """
-        self.cursor.execute("SELECT id, user_id, konto_id, aktien_id,\
+        self.cursor.execute("SELECT id, user_id, konto_id, securities_id,\
                             summe_betrag, summe_anteil, wert, entwicklung,\
                              datum FROM depotstand")
         depotstand = self.cursor.fetchall()
@@ -635,17 +636,17 @@ class DBHandler:
         Input
         -----
         monthlycosts: Ein Objekt mit Attribut
-            'user_id', 'name', 'betrag', 'anteil', 'aktien_id', 'kategorie_id',
-            'ausgangs_konto_id', 'eingangs_konto_id', 'start_datum',
-            'next_due', 'active'
+            'user_id', 'name', 'betrag', 'anteil', 'securities_id',
+            'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
+            'start_datum', 'next_due', 'active'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO monthlycosts (user_id, name, betrag, anteil, aktien_id,
-                            kategorie_id, ausgangs_konto_id,
+            INSERT INTO monthlycosts (user_id, name, betrag, anteil,
+                            securities_id, kategorie_id, ausgangs_konto_id,
                             eingangs_konto_id,start_datum, next_due, active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -653,7 +654,7 @@ class DBHandler:
             monthlycosts.name,
             _num(monthlycosts.betrag),
             _num(monthlycosts.anteil),
-            monthlycosts.aktien_id,
+            monthlycosts.securities_id,
             monthlycosts.kategorie_id,
             monthlycosts.ausgangs_konto_id,
             monthlycosts.eingangs_konto_id,
@@ -674,12 +675,12 @@ class DBHandler:
         Response
         --------
         List[Tuple[int, int, int, int, float, float, float, float, str]]
-            Liste mit Tupeln (id, user_id, name, betrag, anteil, aktien_id,
+            Liste mit Tupeln (id, user_id, name, betrag, anteil, securities_id,
             kategorie_id, ausgangs_konto_id, eingangs_konto_id, start_datum,
             next_due, active) des monthlycosts
         """
         self.cursor.execute("SELECT id, user_id, name, betrag, anteil,\
-                            aktien_id, kategorie_id, ausgangs_konto_id,\
+                            securities_id, kategorie_id, ausgangs_konto_id,\
                             eingangs_konto_id, start_datum, next_due, active\
                             FROM monthlycosts")
         monthlycosts = self.cursor.fetchall()
@@ -693,7 +694,7 @@ class DBHandler:
         Input
         -----
         monthlycosts: Ein Objekt mit Attributen
-            'id', 'user_id', 'name', 'betrag', 'anteil', 'aktien_id',
+            'id', 'user_id', 'name', 'betrag', 'anteil', 'securities_id',
             'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
             'start_datum', 'next_due', 'active'
 
@@ -707,7 +708,7 @@ class DBHandler:
                 name = ?,
                 betrag = ?,
                 anteil = ?,
-                aktien_id = ?,
+                securities_id = ?,
                 kategorie_id = ?,
                 ausgangs_konto_id = ?,
                 eingangs_konto_id = ?,
@@ -720,7 +721,7 @@ class DBHandler:
             monthlycosts.name,
             _num(monthlycosts.betrag),
             _num(monthlycosts.anteil),
-            monthlycosts.aktien_id,
+            monthlycosts.securities_id,
             monthlycosts.kategorie_id,
             monthlycosts.ausgangs_konto_id,
             monthlycosts.eingangs_konto_id,

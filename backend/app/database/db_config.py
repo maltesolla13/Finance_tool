@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 
 
-base_dir = Path(__file__).resolve().parent.parent
+base_dir = Path(__file__).resolve().parent.parent.parent
 db_path = base_dir / "data" / "finance_tracker.db"
 
 
@@ -73,10 +73,10 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS kurs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        aktien_id INTEGER NOT NULL,
+        securities_id INTEGER NOT NULL,
         kurs REAL NOT NULL,
         datum TEXT NOT NULL,
-        FOREIGN KEY (aktien_id) REFERENCES securities(id)
+        FOREIGN KEY (securities_id) REFERENCES securities(id)
     )
     """)
 
@@ -117,7 +117,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         konto_id INTEGER NOT NULL,
-        aktien_id INTEGER NOT NULL,
+        securities_id INTEGER NOT NULL,
         kategorie_id INTEGER,
         type_id INTEGER,
         betrag REAL NOT NULL,
@@ -125,7 +125,7 @@ def init_db():
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES securities(id),
+        FOREIGN KEY (securities_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
     )
@@ -137,7 +137,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         konto_id INTEGER NOT NULL,
-        aktien_id INTEGER NOT NULL,
+        securities_id INTEGER NOT NULL,
         summe_betrag REAL NOT NULL,
         summe_anteil REAL NOT NULL,
         wert REAL NOT NULL,
@@ -145,7 +145,7 @@ def init_db():
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (aktien_id) REFERENCES securities(id)
+        FOREIGN KEY (securities_id) REFERENCES securities(id)
     )
     """)
 
@@ -176,7 +176,7 @@ def init_db():
         name TEXT NOT NULL,
         betrag REAL, -- optional
         anteil REAL, -- optional
-        aktien_id INTEGER,
+        securities_id INTEGER,
         kategorie_id INTEGER,
         ausgangs_konto_id INTEGER,
         eingangs_konto_id INTEGER,
@@ -184,7 +184,7 @@ def init_db():
         next_due TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0,1)),
         FOREIGN KEY (user_id) REFERENCES user(id),
-        FOREIGN KEY (aktien_id) REFERENCES securities(id),
+        FOREIGN KEY (securities_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
         FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id)
