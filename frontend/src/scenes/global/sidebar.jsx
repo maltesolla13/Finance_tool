@@ -196,7 +196,7 @@ const Sidebar = () => {
               />
               <Item
                 title="Add new Saving"
-                to="/forms/addsaving"
+                to="/forms/addsavings"
                 icon={<SavingsOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}

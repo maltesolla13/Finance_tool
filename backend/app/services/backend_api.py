@@ -554,13 +554,13 @@ class BackendRoutes:
                         id=r["id"],
                         name=r["name"],
                         user_id=r["user_id"],
-                        konto_id=["konto_id"],
-                        kategorie_id=["kategorie_id"],
-                        betrag=["betrag"],
-                        start_datum=["datum"],
-                        end_datum=["datum"],
-                        sparrate_e=["betrag"],
-                        sparrate_p=["betrag"],
+                        konto_id=r["konto_id"],
+                        kategorie_id=r["kategorie_id"],
+                        betrag=r["betrag"],
+                        start_datum=r["start_datum"],
+                        end_datum=r["end_datum"],
+                        sparrate_e=r["sparrate_e"],
+                        sparrate_p=r["sparrate_p"],
                     )
                     for r in rows
                 ]

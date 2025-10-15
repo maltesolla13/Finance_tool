@@ -4,13 +4,12 @@ import { Routes, Route } from "react-router-dom";
 import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
-// import InputHome from "./scenes/input/home";
 import AddAccount from "./scenes/forms/addaccounts";
 import AddReceipt from "./scenes/forms/addreceipt";
 import AddUser from "./scenes/forms/adduser";
 import AddSecurities from "./scenes/forms/addsecurities";
 import AddMonthlyCosts from "./scenes/forms/addmonthlycosts";
-
+import AddSavings from "./scenes/forms/addsavings";
 // import Portfolio from "./scenes/portfolio/home";
 // import Perfomrance from "./scenes/portfolio/performance";
 // import Development from "./scenes/portfolio/development";
@@ -40,7 +39,8 @@ function App() {
                 path="/forms/addmonthlycosts"
                 element={<AddMonthlyCosts />}
               />
-              <Route path="/forms/addSecurities" element={<AddSecurities />} />
+              <Route path="/forms/addsecurities" element={<AddSecurities />} />
+              <Route path="/forms/addsavings" element={<AddSavings />} />
               {/* <Route path="/accounts" element={<Account/>}/> />*/}
               {/* <Route path="/portfolio" element={<Portfolio/>}/> />*/}
               {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> />*/}

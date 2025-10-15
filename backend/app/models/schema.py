@@ -112,9 +112,9 @@ class SchemaSparziel:
     kategorie_id: int
     betrag: Decimal
     start_datum: datetime
-    end_datum: datetime
-    sparrate_e: Decimal
-    sparrate_p: Decimal
+    end_datum: Optional[datetime] = None
+    sparrate_e: Optional[Decimal] = None
+    sparrate_p: Optional[Decimal] = None
     id: Optional[int] = None
 
 

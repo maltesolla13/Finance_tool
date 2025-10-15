@@ -752,7 +752,7 @@ class DBHandler:
             INSERT INTO savings (name, user_id, konto_id, kategorie_id,
                             betrag, start_datum, end_datum, sparrate_e,
                             sparrate_p)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             savings.name,
             savings.user_id,
@@ -780,7 +780,7 @@ class DBHandler:
             Liste mit Tupeln (user_id, konto_id, kategorie_id, betrag,
             start_datum, end_datum, sparrate_e, sparrate_p,) des savings
         """
-        self.cursor.execute("SELECT name, user_id, konto_id, kategorie_id,\
+        self.cursor.execute("SELECT id, name, user_id, konto_id, kategorie_id,\
                             betrag, start_datum, end_datum, sparrate_e,\
                             sparrate_p FROM savings")
         savings = self.cursor.fetchall()

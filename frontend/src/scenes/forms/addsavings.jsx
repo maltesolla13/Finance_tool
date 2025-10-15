@@ -127,7 +127,15 @@ export default function AddSavings() {
     setErr("");
     try {
       const rows = await api.listSavings();
-      setSavings(Array.isArray(rows) ? rows : []);
+
+      // snake_case -> camelCase normalisieren
+      const normalized = (Array.isArray(rows) ? rows : []).map((r) => ({
+        ...r,
+        startDatum: r.startDatum ?? r.start_datum ?? null,
+        endDatum: r.endDatum ?? r.end_datum ?? null,
+      }));
+
+      setSavings(normalized);
     } catch (e) {
       console.warn(e);
       setErr("Konnte Sparziele nicht laden.");
@@ -142,8 +150,8 @@ export default function AddSavings() {
 
   const savingsSorted = useReactMemo(() => {
     return [...savings].sort((a, b) => {
-      const da = new Date(a.datum || 0).getTime();
-      const db = new Date(b.datum || 0).getTime();
+      const da = new Date(a.endDatum || 0).getTime();
+      const db = new Date(b.endDatum || 0).getTime();
       return db - da; // neueste zuerst
     });
   }, [savings]);
@@ -189,7 +197,7 @@ export default function AddSavings() {
       setBetrag("");
       setKategorieId(null);
       setKontoId(null);
-      loadSavingss();
+      loadSavings();
     } catch (e2) {
       console.error(e2);
       setErr(e2?.message || "Anlegen fehlgeschlagen");
@@ -323,7 +331,7 @@ export default function AddSavings() {
                   label="Start Datum"
                   type="date"
                   value={startDatum}
-                  onChange={(e) => setDatum(e.target.value)}
+                  onChange={(e) => setStartDatum(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                   required
                 />
@@ -332,27 +340,24 @@ export default function AddSavings() {
                   label="End Datum"
                   type="date"
                   value={endDatum}
-                  onChange={(e) => setDatum(e.target.value)}
+                  onChange={(e) => setEndDatum(e.target.value)}
                   InputLabelProps={{ shrink: true }}
-                  required
                 />
 
                 <TextField
                   label="Sparrate (€)"
                   type="number"
                   inputProps={{ step: "0.01" }}
-                  value={betrag}
-                  onChange={(e) => setBetrag(e.target.value)}
-                  required
+                  value={sparrate_e}
+                  onChange={(e) => setSparrate_e(e.target.value)}
                 />
 
                 <TextField
                   label="Sparrate (% von Einkommen)"
                   type="number"
                   inputProps={{ step: "0.01" }}
-                  value={betrag}
-                  onChange={(e) => setBetrag(e.target.value)}
-                  required
+                  value={sparrate_p}
+                  onChange={(e) => setSparrate_p(e.target.value)}
                 />
 
                 <Box>
@@ -378,7 +383,7 @@ export default function AddSavings() {
             }}
           >
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Sparziele (nach Datum)
+              Sparziele (nach Enddatum)
             </Typography>
 
             <TableContainer>
@@ -391,7 +396,7 @@ export default function AddSavings() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {receiptsSorted.map((r) => (
+                  {savingsSorted.map((r) => (
                     <TableRow key={r.id} hover>
                       <TableCell>
                         {DateUtils.formatDateDE(r.endDatum)}
