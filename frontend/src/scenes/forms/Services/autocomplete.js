@@ -199,7 +199,7 @@ export function SecurityAutocomplete(props) {
   // Gleiche Logik/Optik wie Konto/User, aber mit eigenem Default-Label.
   return (
     <BaseAutocomplete
-      label={props.label ?? "Wertpapier"}
+      label={props.label ?? "Wertpapier (Optional)"}
       required={props.required ?? false}
       {...props}
     />
@@ -218,7 +218,6 @@ export function DualKontoAutocomplete({
   onInInput,
   onOutSelect,
   onInSelect,
-  required = true,
   disabled = false,
   loading = false,
   errorOut = false,
@@ -236,9 +235,9 @@ export function DualKontoAutocomplete({
         inputValue={outInput}
         onInputChange={onOutInput}
         onSelectId={onOutSelect}
-        required={required}
         disabled={disabled}
         loading={loading}
+        required={false}
         error={errorOut}
         helperText={helperTextOut}
       />
@@ -249,9 +248,9 @@ export function DualKontoAutocomplete({
         inputValue={inInput}
         onInputChange={onInInput}
         onSelectId={onInSelect}
-        required={required}
         disabled={disabled}
         loading={loading}
+        required={false}
         error={errorIn}
         helperText={helperTextIn}
       />
