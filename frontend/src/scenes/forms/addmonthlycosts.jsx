@@ -27,7 +27,6 @@ import {
   ListItem,
   ListItemText,
 } from "@mui/material";
-import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -610,20 +609,12 @@ export default function AddMonthlyCosts() {
                 }
               />
 
-              <Autocomplete
+              <SecurityAutocomplete
                 options={optSecurities}
-                value={
-                  optSecurities.find((o) => o.id === editItem.securities_id) ??
-                  null
+                valueId={editItem.securities_id}
+                onSelectId={(id) =>
+                  setEditItem((p) => ({ ...p, securities_id: id }))
                 }
-                getOptionLabel={(o) => o?.name ?? ""}
-                onChange={(_, v) =>
-                  setEditItem((p) => ({ ...p, securities_id: v?.id ?? null }))
-                }
-                filterOptions={(x) => x}
-                renderInput={(p) => (
-                  <TextField {...p} label="Wertpapier (optional)" />
-                )}
               />
 
               <TextField
