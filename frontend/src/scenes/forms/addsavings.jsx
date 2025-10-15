@@ -23,7 +23,6 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
@@ -32,8 +31,11 @@ import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
-
-const filter = createFilterOptions();
+import {
+  UserAutocomplete,
+  KontoAutocomplete,
+  KategorieAutocomplete,
+} from "./Services/autocomplete";
 
 export default function AddSavings() {
   const theme = useTheme();
@@ -204,72 +206,6 @@ export default function AddSavings() {
     }
   };
 
-  // ====== UI: Autocomplete helpers ======
-  const KategorieAutocomplete = (
-    <Autocomplete
-      options={optCats}
-      value={optCats.find((o) => o.id === kategorieId) ?? null}
-      inputValue={inputCat}
-      onInputChange={(_, v) => setInputCat(v)}
-      getOptionLabel={(o) => (typeof o === "string" ? o : (o?.name ?? ""))}
-      filterOptions={(opts, params) => {
-        const filtered = filter(opts, params);
-        const { inputValue } = params;
-        const exists = opts.some(
-          (o) => o.name?.toLowerCase() === inputValue.toLowerCase()
-        );
-        if (inputValue && !exists) {
-          filtered.push({
-            id: -1,
-            name: `Neu erstellen: "${inputValue}"`,
-            __create: inputValue,
-          });
-        }
-        return filtered;
-      }}
-      onChange={async (_, newVal) => {
-        if (!newVal) return setKategorieId(null);
-        if (newVal.__create) {
-          const created = await optionsSvc.ensureKategorie(newVal.__create);
-          setOptCats((prev) => [created, ...prev]);
-          setCatsById((prev) => ({ ...prev, [created.id]: created.name }));
-          setKategorieId(created.id);
-        } else {
-          setKategorieId(newVal.id);
-        }
-      }}
-      renderInput={(params) => (
-        <TextField {...params} label="Kategorie" required />
-      )}
-    />
-  );
-
-  const UserAutocomplete = (
-    <Autocomplete
-      options={optUsers}
-      value={optUsers.find((o) => o.id === userId) ?? null}
-      inputValue={inputUser}
-      onInputChange={(_, v) => setInputUser(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setUserId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="User" required />}
-    />
-  );
-
-  const KontoAutocomplete = (
-    <Autocomplete
-      options={optKonten}
-      value={optKonten.find((o) => o.id === kontoId) ?? null}
-      inputValue={inputKonto}
-      onInputChange={(_, v) => setInputKonto(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setKontoId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="Konto" required />}
-    />
-  );
-
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -314,9 +250,34 @@ export default function AddSavings() {
                   required
                 />
 
-                {UserAutocomplete}
-                {KontoAutocomplete}
-                {KategorieAutocomplete}
+                <UserAutocomplete
+                  options={optUsers}
+                  valueId={userId}
+                  inputValue={inputUser}
+                  onInputChange={setInputUser}
+                  onSelectId={setUserId}
+                />
+
+                <KontoAutocomplete
+                  options={optKonten}
+                  valueId={kontoId}
+                  inputValue={inputKonto}
+                  onInputChange={setInputKonto}
+                  onSelectId={setKontoId}
+                />
+
+                <KategorieAutocomplete
+                  options={optCats}
+                  valueId={kategorieId}
+                  inputValue={inputCat}
+                  onInputChange={setInputCat}
+                  onSelectId={setKategorieId}
+                  onCreate={async (name) => {
+                    const created = await optionsSvc.ensureKategorie(name);
+                    setOptCats((prev) => [created, ...prev]);
+                    setKategorieId(created.id);
+                  }}
+                />
 
                 <TextField
                   label="Betrag (€)"

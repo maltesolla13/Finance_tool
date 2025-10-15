@@ -23,7 +23,6 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
@@ -32,8 +31,12 @@ import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
-
-const filter = createFilterOptions();
+import {
+  UserAutocomplete,
+  KontoAutocomplete,
+  KategorieAutocomplete,
+  LadenAutocomplete,
+} from "./Services/autocomplete";
 
 export default function AddReceipt() {
   const theme = useTheme();
@@ -202,110 +205,6 @@ export default function AddReceipt() {
     }
   };
 
-  // ====== UI: Autocomplete helpers ======
-  const KategorieAutocomplete = (
-    <Autocomplete
-      options={optCats}
-      value={optCats.find((o) => o.id === kategorieId) ?? null}
-      inputValue={inputCat}
-      onInputChange={(_, v) => setInputCat(v)}
-      getOptionLabel={(o) => (typeof o === "string" ? o : (o?.name ?? ""))}
-      filterOptions={(opts, params) => {
-        const filtered = filter(opts, params);
-        const { inputValue } = params;
-        const exists = opts.some(
-          (o) => o.name?.toLowerCase() === inputValue.toLowerCase()
-        );
-        if (inputValue && !exists) {
-          filtered.push({
-            id: -1,
-            name: `Neu erstellen: "${inputValue}"`,
-            __create: inputValue,
-          });
-        }
-        return filtered;
-      }}
-      onChange={async (_, newVal) => {
-        if (!newVal) return setKategorieId(null);
-        if (newVal.__create) {
-          const created = await optionsSvc.ensureKategorie(newVal.__create);
-          setOptCats((prev) => [created, ...prev]);
-          setCatsById((prev) => ({ ...prev, [created.id]: created.name }));
-          setKategorieId(created.id);
-        } else {
-          setKategorieId(newVal.id);
-        }
-      }}
-      renderInput={(params) => (
-        <TextField {...params} label="Kategorie" required />
-      )}
-    />
-  );
-
-  const LadenAutocomplete = (
-    <Autocomplete
-      options={optLaden}
-      value={optLaden.find((o) => o.id === ladenId) ?? null}
-      inputValue={inputLaden}
-      onInputChange={(_, v) => setInputLaden(v)}
-      getOptionLabel={(o) => (typeof o === "string" ? o : (o?.name ?? ""))}
-      filterOptions={(opts, params) => {
-        const filtered = filter(opts, params);
-        const { inputValue } = params;
-        const exists = opts.some(
-          (o) => o.name?.toLowerCase() === inputValue.toLowerCase()
-        );
-        if (inputValue && !exists) {
-          filtered.push({
-            id: -1,
-            name: `Neu erstellen: "${inputValue}"`,
-            __create: inputValue,
-          });
-        }
-        return filtered;
-      }}
-      onChange={async (_, newVal) => {
-        if (!newVal) return setLadenId(null);
-        if (newVal.__create) {
-          // Backend: /options/ensure sollte auch 'laden' unterstützen
-          const created = await optionsSvc.ensureLaden(newVal.__create);
-          setOptLaden((prev) => [created, ...prev]);
-          setLadenById((prev) => ({ ...prev, [created.id]: created.name }));
-          setLadenId(created.id);
-        } else {
-          setLadenId(newVal.id);
-        }
-      }}
-      renderInput={(params) => <TextField {...params} label="Laden" required />}
-    />
-  );
-
-  const UserAutocomplete = (
-    <Autocomplete
-      options={optUsers}
-      value={optUsers.find((o) => o.id === userId) ?? null}
-      inputValue={inputUser}
-      onInputChange={(_, v) => setInputUser(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setUserId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="User" required />}
-    />
-  );
-
-  const KontoAutocomplete = (
-    <Autocomplete
-      options={optKonten}
-      value={optKonten.find((o) => o.id === kontoId) ?? null}
-      inputValue={inputKonto}
-      onInputChange={(_, v) => setInputKonto(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setKontoId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      renderInput={(p) => <TextField {...p} label="Konto" required />}
-    />
-  );
-
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -343,7 +242,13 @@ export default function AddReceipt() {
 
             <Box component="form" onSubmit={onCreate}>
               <Stack spacing={2}>
-                {UserAutocomplete}
+                <UserAutocomplete
+                  options={optUsers}
+                  valueId={userId}
+                  inputValue={inputUser}
+                  onInputChange={setInputUser}
+                  onSelectId={setUserId}
+                />
 
                 <TextField
                   label="Bezeichnung"
@@ -361,9 +266,39 @@ export default function AddReceipt() {
                   required
                 />
 
-                {KategorieAutocomplete}
-                {KontoAutocomplete}
-                {LadenAutocomplete}
+                <KategorieAutocomplete
+                  options={optCats}
+                  valueId={kategorieId}
+                  inputValue={inputCat}
+                  onInputChange={setInputCat}
+                  onSelectId={setKategorieId}
+                  onCreate={async (name) => {
+                    const created = await optionsSvc.ensureKategorie(name);
+                    setOptCats((prev) => [created, ...prev]);
+                    setKategorieId(created.id);
+                  }}
+                />
+
+                <KontoAutocomplete
+                  options={optKonten}
+                  valueId={kontoId}
+                  inputValue={inputKonto}
+                  onInputChange={setInputKonto}
+                  onSelectId={setKontoId}
+                />
+
+                <LadenAutocomplete
+                  options={optLaden}
+                  valueId={ladenId}
+                  inputValue={inputLaden}
+                  onInputChange={setInputLaden}
+                  onSelectId={setLadenId}
+                  onCreate={async (name) => {
+                    const created = await optionsSvc.ensureLaden(name);
+                    setOptLaden((prev) => [created, ...prev]);
+                    setLadenId(created.id);
+                  }}
+                />
 
                 <TextField
                   label="Datum"

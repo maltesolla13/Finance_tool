@@ -39,3 +39,38 @@ export const validateMonthlyCost = ({
   }
   return "";
 };
+
+export function validateSavings({
+  name,
+  userId,
+  kontoId,
+  kategorieId,
+  betrag,
+  startDatum,
+  endDatum,
+  sparrate_e,
+  sparrate_p,
+}) {
+  const num = (x) =>
+    x === "" || x === null || x === undefined ? null : Number(x);
+
+  if (!name?.trim()) return "Bezeichnung ist erforderlich.";
+  if (!userId) return "User ist erforderlich.";
+  if (!kontoId) return "Konto ist erforderlich.";
+  if (!kategorieId) return "Kategorie ist erforderlich.";
+
+  const start = new Date(startDatum);
+  const end = new Date(endDatum);
+  if (isNaN(+start)) return "Ungültiges Startdatum.";
+  if (isNaN(+end)) return "Ungültiges Enddatum.";
+  if (end < start) return "Enddatum muss nach dem Startdatum liegen.";
+
+  const b = num(betrag);
+  const se = num(sparrate_e);
+  const sp = num(sparrate_p);
+  if (b !== null && isNaN(b)) return "Betrag muss eine Zahl sein.";
+  if (se !== null && isNaN(se)) return "Sparrate (€) muss eine Zahl sein.";
+  if (sp !== null && isNaN(sp)) return "Sparrate (%) muss eine Zahl sein.";
+
+  return ""; // alles ok
+}

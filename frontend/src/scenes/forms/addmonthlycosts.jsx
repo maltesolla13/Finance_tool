@@ -40,8 +40,12 @@ import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
-
-const filter = createFilterOptions();
+import {
+  UserAutocomplete,
+  DualKontoAutocomplete,
+  KategorieAutocomplete,
+  SecurityAutocomplete,
+} from "./Services/autocomplete";
 
 export default function AddMonthlyCosts() {
   const theme = useTheme();
@@ -301,103 +305,6 @@ export default function AddMonthlyCosts() {
     }
   };
 
-  // === Autocompletes ===
-  const UserAutocomplete = (
-    <Autocomplete
-      options={optUsers}
-      value={optUsers.find((o) => o.id === userId) ?? null}
-      inputValue={inputUser}
-      onInputChange={(_, v) => setInputUser(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setUserId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      openOnFocus
-      renderInput={(p) => <TextField {...p} label="User" required />}
-    />
-  );
-
-  const KategorieAutocomplete = (
-    <Autocomplete
-      options={optCats}
-      value={optCats.find((o) => o.id === kategorieId) ?? null}
-      inputValue={inputCat}
-      onInputChange={(_, v) => setInputCat(v)}
-      getOptionLabel={(o) => (typeof o === "string" ? o : (o?.name ?? ""))}
-      filterOptions={(opts, params) => {
-        const filtered = filter(opts, params);
-        const { inputValue } = params;
-        const exists = opts.some(
-          (o) => o.name?.toLowerCase() === inputValue.toLowerCase()
-        );
-        if (inputValue && !exists) {
-          filtered.push({
-            id: -1,
-            name: `Neu erstellen: "${inputValue}"`,
-            __create: inputValue,
-          });
-        }
-        return filtered;
-      }}
-      onChange={async (_, newVal) => {
-        if (!newVal) return setKategorieId(null);
-        if (newVal.__create) {
-          const created = await optionsSvc.ensureKategorie(newVal.__create);
-          setOptCats((prev) => [created, ...prev]);
-          setCatsById((prev) => ({ ...prev, [created.id]: created.name }));
-          setKategorieId(created.id);
-        } else {
-          setKategorieId(newVal.id);
-        }
-      }}
-      openOnFocus
-      renderInput={(params) => (
-        <TextField {...params} label="Kategorie" required />
-      )}
-    />
-  );
-
-  const KontoOutAutocomplete = (
-    <Autocomplete
-      options={optKonten}
-      value={optKonten.find((o) => o.id === kontoOutId) ?? null}
-      inputValue={inputKontoOut}
-      onInputChange={(_, v) => setInputKontoOut(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setKontoOutId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      openOnFocus
-      renderInput={(p) => (
-        <TextField
-          {...p}
-          label="Ausgangs‑Konto"
-          error={!kontoOutId && !kontoInId}
-          helperText="Mindestens eines der beiden Konto‑Felder muss befüllt sein"
-        />
-      )}
-    />
-  );
-
-  const KontoInAutocomplete = (
-    <Autocomplete
-      options={optKonten}
-      value={optKonten.find((o) => o.id === kontoInId) ?? null}
-      inputValue={inputKontoIn}
-      onInputChange={(_, v) => setInputKontoIn(v)}
-      getOptionLabel={(o) => o?.name ?? ""}
-      onChange={(_, v) => setKontoInId(v?.id ?? null)}
-      filterOptions={(x) => x}
-      openOnFocus
-      renderInput={(p) => (
-        <TextField
-          {...p}
-          label="Eingangs‑Konto"
-          error={!kontoOutId && !kontoInId}
-          helperText="Mindestens eines der beiden Konto‑Felder muss befüllt sein"
-        />
-      )}
-    />
-  );
-
   // === Custom Event Content: Name + farbiger Punkt (aktiv/inaktiv) ===
   const renderEventContent = (arg) => {
     const activeFlag = !!arg.event.extendedProps.active;
@@ -463,10 +370,49 @@ export default function AddMonthlyCosts() {
                   onChange={(e) => setName(e.target.value)}
                   required
                 />
-                {UserAutocomplete}
-                {KontoOutAutocomplete}
-                {KontoInAutocomplete}
-                {KategorieAutocomplete}
+
+                <UserAutocomplete
+                  options={optUsers}
+                  valueId={userId}
+                  inputValue={inputUser}
+                  onInputChange={setInputUser}
+                  onSelectId={setUserId}
+                />
+
+                <DualKontoAutocomplete
+                  options={optKonten}
+                  // Werte
+                  outId={kontoOutId}
+                  inId={kontoInId}
+                  // Input-Text
+                  outInput={inputKontoOut}
+                  inInput={inputKontoIn}
+                  // Handler
+                  onOutInput={setInputKontoOut}
+                  onInInput={setInputKontoIn}
+                  onOutSelect={setKontoOutId}
+                  onInSelect={setKontoInId}
+                  // (optional) Validierung wie bei dir: mind. eines muss gesetzt sein
+                  errorOut={!kontoOutId && !kontoInId}
+                  errorIn={!kontoOutId && !kontoInId}
+                  helperTextOut="Mindestens eines der beiden Konto-Felder muss befüllt sein"
+                  helperTextIn="Mindestens eines der beiden Konto-Felder muss befüllt sein"
+                  // (optional)
+                  loading={loadingOpts}
+                />
+
+                <KategorieAutocomplete
+                  options={optCats}
+                  valueId={kategorieId}
+                  inputValue={inputCat}
+                  onInputChange={setInputCat}
+                  onSelectId={setKategorieId}
+                  onCreate={async (name) => {
+                    const created = await optionsSvc.ensureKategorie(name);
+                    setOptCats((prev) => [created, ...prev]);
+                    setKategorieId(created.id);
+                  }}
+                />
 
                 <TextField
                   label="Betrag (€)"
@@ -481,17 +427,10 @@ export default function AddMonthlyCosts() {
                   }
                 />
 
-                {/* Optional: Wertpapier + Anteil */}
-                <Autocomplete
+                <SecurityAutocomplete
                   options={optSecurities}
-                  value={optSecurities.find((o) => o.id === securityId) ?? null}
-                  onChange={(_, v) => setSecurityId(v?.id ?? null)}
-                  getOptionLabel={(o) => o?.name ?? ""}
-                  filterOptions={(x) => x}
-                  openOnFocus
-                  renderInput={(p) => (
-                    <TextField {...p} label="Wertpapier (optional)" />
-                  )}
+                  valueId={securityId}
+                  onSelectId={setSecurityId}
                 />
 
                 <TextField

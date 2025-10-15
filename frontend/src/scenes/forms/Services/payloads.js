@@ -36,3 +36,28 @@ export const toPayloadMonthlyCost = ({
   next_due: DateUtils.isoDateTime(nextDue || startDatum),
   active: !!active,
 });
+
+export function toPayloadSavings({
+  name,
+  userId,
+  kontoId,
+  kategorieId,
+  betrag,
+  startDatum,
+  endDatum,
+  sparrate_e,
+  sparrate_p,
+}) {
+  const num = (x) => (x === "" || x == null ? null : Number(x));
+  return {
+    name: name.trim(),
+    user_id: userId,
+    konto_id: kontoId,
+    kategorie_id: kategorieId,
+    betrag: num(betrag),
+    start_datum: DateUtils.toISODate(startDatum),
+    end_datum: endDatum ? DateUtils.toISODate(endDatum) : null,
+    sparrate_e: num(sparrate_e),
+    sparrate_p: num(sparrate_p),
+  };
+}
