@@ -741,7 +741,7 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attribut
-            'user_id', 'konto_id', 'kategorie_id', 'betrag',
+            'name', 'user_id', 'konto_id', 'kategorie_id', 'betrag',
             'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p'
 
         Response
@@ -749,11 +749,12 @@ class DBHandler:
         None
         """
         self.cursor.execute("""
-            INSERT INTO savings (user_id, konto_id, kategorie_id,
+            INSERT INTO savings (name, user_id, konto_id, kategorie_id,
                             betrag, start_datum, end_datum, sparrate_e,
                             sparrate_p)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            savings.name,
             savings.user_id,
             savings.konto_id,
             savings.kategorie_id,
@@ -775,11 +776,11 @@ class DBHandler:
 
         Response
         --------
-        List[Tuple[int, int, int, float, str, str, float, float]]
+        List[Tuple[str, int, int, int, float, str, str, float, float]]
             Liste mit Tupeln (user_id, konto_id, kategorie_id, betrag,
             start_datum, end_datum, sparrate_e, sparrate_p,) des savings
         """
-        self.cursor.execute("SELECT user_id, konto_id, kategorie_id,\
+        self.cursor.execute("SELECT name, user_id, konto_id, kategorie_id,\
                             betrag, start_datum, end_datum, sparrate_e,\
                             sparrate_p FROM savings")
         savings = self.cursor.fetchall()
@@ -793,7 +794,7 @@ class DBHandler:
         Input
         -----
         savings: Ein Objekt mit Attributen
-            'user_id', 'konto_id', 'kategorie_id', 'betrag',
+            'name', 'user_id', 'konto_id', 'kategorie_id', 'betrag',
             'start_datum', 'end_datum', 'sparrate_e', 'sparrate_p'
 
         Response
@@ -802,7 +803,8 @@ class DBHandler:
         """
         self.cursor.execute("""
             UPDATE savings
-            SET user_id = ?,
+            SET name = ?,
+                user_id = ?,
                 konto_id = ?,
                 kategorie_id = ?,
                 betrag = ?,
@@ -812,6 +814,7 @@ class DBHandler:
                 sparrate_p = ?
             WHERE id = ?
         """, (
+            savings.name,
             savings.user_id,
             savings.konto_id,
             savings.kategorie_id,

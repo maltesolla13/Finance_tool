@@ -153,6 +153,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS savings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
         user_id INTEGER,
         konto_id INTEGER,
         kategorie_id INTEGER,

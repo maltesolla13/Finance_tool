@@ -106,6 +106,7 @@ class SchemaDepotstand:
 
 @dataclass
 class SchemaSparziel:
+    name: str
     user_id: int
     konto_id: int
     kategorie_id: int

@@ -552,6 +552,7 @@ class BackendRoutes:
                 return [
                     SchemaSparziel(
                         id=r["id"],
+                        name=r["name"],
                         user_id=r["user_id"],
                         konto_id=["konto_id"],
                         kategorie_id=["kategorie_id"],

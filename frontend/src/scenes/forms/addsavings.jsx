@@ -44,6 +44,7 @@ export default function AddSavings() {
   const optionsSvc = useMemo(() => new OptionsService(api), [api]);
 
   // ====== Form State ======
+  const [name, setName] = useState("");
   const [userId, setUserId] = useState(null);
   const [kontoId, setKontoId] = useState(null);
   const [kategorieId, setKategorieId] = useState(null);
@@ -154,6 +155,7 @@ export default function AddSavings() {
     setOk("");
 
     const errMsg = Validators.validateSavings({
+      name,
       userId,
       kontoId,
       kategorieId,
@@ -170,6 +172,7 @@ export default function AddSavings() {
 
     try {
       const payload = Payloads.toPayloadSavings({
+        name,
         userId,
         kontoId,
         kategorieId,
@@ -181,6 +184,7 @@ export default function AddSavings() {
       });
       await api.createSavings(payload);
       setOk("Savings angelegt.");
+      // Einträge resetten
       setName("");
       setBetrag("");
       setKategorieId(null);
@@ -290,19 +294,21 @@ export default function AddSavings() {
             }}
           >
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Einkauf hinzufügen
+              Sparziel hinzufügen
             </Typography>
 
             <Box component="form" onSubmit={onCreate}>
               <Stack spacing={2}>
-                {UserAutocomplete}
-
                 <TextField
                   label="Bezeichnung"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
                 />
+
+                {UserAutocomplete}
+                {KontoAutocomplete}
+                {KategorieAutocomplete}
 
                 <TextField
                   label="Betrag (€)"
@@ -313,16 +319,39 @@ export default function AddSavings() {
                   required
                 />
 
-                {KategorieAutocomplete}
-                {KontoAutocomplete}
-                {LadenAutocomplete}
-
                 <TextField
-                  label="Datum"
+                  label="Start Datum"
                   type="date"
-                  value={datum}
+                  value={startDatum}
                   onChange={(e) => setDatum(e.target.value)}
                   InputLabelProps={{ shrink: true }}
+                  required
+                />
+
+                <TextField
+                  label="End Datum"
+                  type="date"
+                  value={endDatum}
+                  onChange={(e) => setDatum(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  required
+                />
+
+                <TextField
+                  label="Sparrate (€)"
+                  type="number"
+                  inputProps={{ step: "0.01" }}
+                  value={betrag}
+                  onChange={(e) => setBetrag(e.target.value)}
+                  required
+                />
+
+                <TextField
+                  label="Sparrate (% von Einkommen)"
+                  type="number"
+                  inputProps={{ step: "0.01" }}
+                  value={betrag}
+                  onChange={(e) => setBetrag(e.target.value)}
                   required
                 />
 
@@ -337,7 +366,7 @@ export default function AddSavings() {
           </Paper>
         </Grid>
 
-        {/* RECHTE SEITE: Tabelle der Einkäufe */}
+        {/* RECHTE SEITE: Tabelle der Sparziele */}
         <Grid item xs={12} md={6}>
           <Paper
             sx={{
@@ -349,30 +378,28 @@ export default function AddSavings() {
             }}
           >
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Einkäufe (nach Datum)
+              Sparziele (nach Datum)
             </Typography>
 
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Datum</TableCell>
+                    <TableCell>Ziel Datum</TableCell>
                     <TableCell>Betrag (€)</TableCell>
                     <TableCell>Name</TableCell>
-                    <TableCell>Laden</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {receiptsSorted.map((r) => (
                     <TableRow key={r.id} hover>
-                      <TableCell>{DateUtils.formatDateDE(r.datum)}</TableCell>
+                      <TableCell>
+                        {DateUtils.formatDateDE(r.endDatum)}
+                      </TableCell>
                       <TableCell>
                         {r.betrag != null ? Number(r.betrag).toFixed(2) : "-"}
                       </TableCell>
                       <TableCell>{r.name}</TableCell>
-                      <TableCell>
-                        {ladenById[r.laden_id] ?? r.laden_id}
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
