@@ -43,9 +43,9 @@ import {
   SecurityAutocomplete,
 } from "./Services/autocomplete";
 import {
-  makeHoverController,
-  formatHoverSecondary,
-} from "./Services/calendar.hover";
+  makeClickController,
+  formatInfoSecondary,
+} from "./Services/calendar.klick";
 import {
   buildEditHandlers,
   saveEditItem,
@@ -192,31 +192,20 @@ export default function AddMonthlyCosts() {
     [monthlyCosts, viewStart, viewEnd]
   );
 
-  // === Hover-Popover ===
-  const [hoverAnchor, setHoverAnchor] = useState(null);
-  const [hoverDate, setHoverDate] = useState(null);
-  const [hoverItems, setHoverItems] = useState([]);
-  const openHover = Boolean(hoverAnchor);
+  // === Klick-Popover ===
+  const [infoAnchor, setInfoAnchor] = useState(null);
+  const [infoDate, setInfoDate] = useState(null);
+  const [infoItems, setInfoItems] = useState([]);
 
-  const hoverCtrl = useMemo(
+  const clickCtrl = useMemo(
     () =>
-      makeHoverController(
-        events,
-        { setHoverAnchor, setHoverItems, setHoverDate },
-        { enterDelay: 120, leaveDelay: 160 }
-      ),
+      makeClickController(events, { setInfoAnchor, setInfoItems, setInfoDate }),
     [events]
   );
 
   // === Klick -> Edit ===
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
-
-  const { onEventClick: openEditForEvent } = useMemo(
-    () => buildEditHandlers({ monthlyCosts, setEditItem, setEditOpen }),
-    [monthlyCosts]
-  );
-
   const closeEdit = () => {
     setEditOpen(false);
     setEditItem(null);
@@ -476,9 +465,8 @@ export default function AddMonthlyCosts() {
               height="auto"
               events={events}
               eventContent={renderEventContent}
-              eventMouseEnter={hoverCtrl.onEnter}
-              eventMouseLeave={hoverCtrl.onLeave}
-              eventClick={openEditForEvent}
+              eventClick={clickCtrl.onEventClick}
+              dateClick={clickCtrl.onDateClick}
               dayMaxEventRows={3}
               headerToolbar={{
                 left: "prev,next today",
@@ -491,9 +479,9 @@ export default function AddMonthlyCosts() {
             />
 
             <Popover
-              open={openHover}
-              anchorEl={hoverAnchor}
-              onClose={() => setHoverAnchor(null)}
+              open={Boolean(infoAnchor)}
+              anchorEl={infoAnchor}
+              onClose={() => clickCtrl.close()}
               anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
               disableScrollLock
               disableAutoFocus
@@ -503,76 +491,81 @@ export default function AddMonthlyCosts() {
                 modifiers: [{ name: "offset", options: { offset: [0, 8] } }],
               }}
               PaperProps={{
-                ...hoverCtrl.popoverProps,
+                ...clickCtrl.paperProps,
                 elevation: 8,
                 sx: {
-                  ...hoverCtrl.popoverProps?.sx,
+                  ...clickCtrl.popoverProps?.sx,
                   maxWidth: 480,
                 },
               }}
             >
               <Box sx={{ p: 2, maxWidth: 420 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {hoverDate
-                    ? hoverDate.toLocaleDateString("de-DE")
-                    : "Details"}
+                  {infoDate ? infoDate.toLocaleDateString("de-DE") : "Details"}
                 </Typography>
 
-                <List dense>
-                  {hoverItems.map((e) => {
-                    const xp = e.extendedProps || {};
-                    const secondary = formatHoverSecondary(xp, {
-                      catsById,
-                      kontenById,
-                      securitiesById,
-                      usersById,
-                    });
-
-                    return (
-                      <ListItem key={e.id} sx={{ display: "block", py: 1.25 }}>
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: 700, mb: 0.25 }}
+                {infoItems.length === 0 ? (
+                  <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                    Keine Einträge an diesem Tag.
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {infoItems.map((e) => {
+                      const xp = e.extendedProps || {};
+                      return (
+                        <ListItem
+                          key={e.id}
+                          sx={{ display: "block", py: 1.25 }}
                         >
-                          {e.title}
-                        </Typography>
-
-                        <Typography
-                          variant="h6"
-                          sx={{ opacity: 0.9, whiteSpace: "normal" }}
-                        >
-                          {secondary}
-                        </Typography>
-
-                        <Box>
-                          <Button
-                            size="small"
-                            startIcon={<EditOutlined />}
-                            variant="outlined"
-                            onClick={() => {
-                              openEditById(e.id, {
-                                monthlyCosts,
-                                setEditItem,
-                                setEditOpen,
-                              });
-                              setHoverAnchor(null);
-                            }}
-                            sx={{
-                              color: colors.grey[100],
-                              borderColor: colors.grey[100],
-                              "&:hover": {
-                                borderColor: colors.grey[100],
-                                backgroundColor: "rgba(255,255,255,0.06)", // dezenter Hover auf dunklem Theme
-                              },
-                            }}
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: 700, mb: 0.25 }}
                           >
-                            Bearbeiten
-                          </Button>
-                        </Box>
-                      </ListItem>
-                    );
-                  })}
-                </List>
+                            {e.title}
+                          </Typography>
+
+                          <Typography
+                            variant="h6"
+                            sx={{ opacity: 0.9, whiteSpace: "normal" }}
+                          >
+                            {formatInfoSecondary(xp, {
+                              catsById,
+                              kontenById,
+                              securitiesById,
+                              usersById,
+                            })}
+                          </Typography>
+
+                          <Box>
+                            <Button
+                              size="small"
+                              startIcon={<EditOutlined />}
+                              variant="outlined"
+                              onClick={() => {
+                                openEditById(e.id, {
+                                  monthlyCosts,
+                                  setEditItem,
+                                  setEditOpen,
+                                });
+                                clickCtrl.close(); // Popover schließen
+                              }}
+                              sx={{
+                                color: colors.grey[100],
+                                borderColor: colors.grey[100],
+                                "&:hover": {
+                                  borderColor: colors.grey[100],
+                                  backgroundColor: "rgba(255,255,255,0.06)", // dezenter Hover auf dunklem Theme
+                                },
+                              }}
+                            >
+                              Bearbeiten
+                            </Button>
+                          </Box>
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                )}
               </Box>
             </Popover>
           </Paper>
