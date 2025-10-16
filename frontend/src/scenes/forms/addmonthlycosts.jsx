@@ -158,6 +158,7 @@ export default function AddMonthlyCosts() {
   }, [startDatum]);
 
   // === MonthlyCosts Liste + Kalender ===
+  const [editErrors, setEditErrors] = useState({});
   const calendarRef = useRef(null);
   const [monthlyCosts, setMonthlyCosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -219,6 +220,7 @@ export default function AddMonthlyCosts() {
       loadMonthlyCosts,
       setErr,
       setMonthlyCosts,
+      setEditErrors,
     });
 
   // === Anlegen ===
@@ -628,6 +630,8 @@ export default function AddMonthlyCosts() {
                   setEditItem((p) => ({ ...p, start_datum_ui: e.target.value }))
                 }
                 InputLabelProps={{ shrink: true }}
+                error={Boolean(editErrors.start_datum_ui)}
+                helperText={editErrors.start_datum_ui}
               />
               <TextField
                 label="Nächste Fälligkeit"
