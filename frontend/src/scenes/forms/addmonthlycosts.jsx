@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-  useMemo as useReactMemo,
-} from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
   TextField,
@@ -34,6 +28,8 @@ import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+
+// Services
 import { buildMonthlyCostEvents } from "./Services/calendar.utils";
 import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
@@ -45,6 +41,11 @@ import {
   KategorieAutocomplete,
   SecurityAutocomplete,
 } from "./Services/autocomplete";
+import {
+  makeHoverHandlers,
+  formatHoverSecondary,
+} from "./Services/calendar.hover";
+import { buildEditHandlers, saveEditItem } from "./Services/calendar.edit";
 
 export default function AddMonthlyCosts() {
   const theme = useTheme();
@@ -63,9 +64,9 @@ export default function AddMonthlyCosts() {
   const [startDatum, setStartDatum] = useState(
     new Date().toISOString().slice(0, 10)
   );
-  const [nextDue, setNextDue] = useState(""); // optional; fällt sonst auf startDatum zurück
+  const [nextDue, setNextDue] = useState("");
 
-  // zwei Konto-Felder (Ausgang + Eingang)
+  // Konte
   const [kontoOutId, setKontoOutId] = useState(null);
   const [kontoInId, setKontoInId] = useState(null);
   const [inputKontoOut, setInputKontoOut] = useState("");
@@ -75,7 +76,7 @@ export default function AddMonthlyCosts() {
   const [securityId, setSecurityId] = useState(null);
   const [anteil, setAnteil] = useState("");
 
-  // === Options (Autocomplete) ===
+  // Options (Autocomplete)
   const [optUsers, setOptUsers] = useState([]);
   const [optKonten, setOptKonten] = useState([]);
   const [optCats, setOptCats] = useState([]);
@@ -114,7 +115,7 @@ export default function AddMonthlyCosts() {
     loadAllOptions();
   }, [loadAllOptions]);
 
-  // Live-Suche (debounced) nach Nutzereingaben
+  // Live-Suche (debounced)
   useEffect(() => {
     let alive = true;
     const t = setTimeout(async () => {
@@ -146,7 +147,7 @@ export default function AddMonthlyCosts() {
     };
   }, [inputUser, inputKontoOut, inputKontoIn, inputCat, optionsSvc]);
 
-  // next_due automatisch vorbefüllen, solange der Nutzer nichts gesetzt hat
+  // next_due automatisch vorbefüllen
   useEffect(() => {
     if (!nextDue) setNextDue(startDatum);
   }, [startDatum]);
@@ -179,7 +180,7 @@ export default function AddMonthlyCosts() {
     () => DateUtils.currentMonthRange(new Date()),
     []
   );
-  const events = useReactMemo(
+  const events = useMemo(
     () => buildMonthlyCostEvents(monthlyCosts, monthStart, monthEnd),
     [monthlyCosts, monthStart, monthEnd]
   );
@@ -190,69 +191,33 @@ export default function AddMonthlyCosts() {
   const [hoverItems, setHoverItems] = useState([]);
   const openHover = Boolean(hoverAnchor);
 
-  const handleEventMouseEnter = (info) => {
-    const eventDate = new Date(info.event.startStr);
-    const sameDay = (d1, d2) =>
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate();
-    const items = events.filter((e) => sameDay(new Date(e.start), eventDate));
-    setHoverItems(items);
-    setHoverDate(eventDate);
-    setHoverAnchor(info.el);
-  };
-  const handleEventMouseLeave = () => {
-    setHoverAnchor(null);
-    setHoverItems([]);
-    setHoverDate(null);
-  };
+  const { onEnter: handleEventMouseEnter, onLeave: handleEventMouseLeave } =
+    useMemo(
+      () =>
+        makeHoverHandlers(events, {
+          setHoverAnchor,
+          setHoverItems,
+          setHoverDate,
+        }),
+      [events]
+    );
 
   // === Klick -> Edit ===
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
-  const openEditForEvent = (clickInfo) => {
-    const id = Number(clickInfo.event.id);
-    const s = monthlyCosts.find((x) => x.id === id);
-    if (!s) return;
-    setEditItem({
-      ...s,
-      start_datum_ui: s.start_datum?.slice(0, 10),
-      next_due_ui: s.next_due?.slice(0, 10),
-    });
-    setEditOpen(true);
-  };
+  const { onEventClick: openEditForEvent } = useMemo(
+    () => buildEditHandlers({ monthlyCosts, setEditItem, setEditOpen }),
+    [monthlyCosts]
+  );
+
   const closeEdit = () => {
     setEditOpen(false);
     setEditItem(null);
   };
 
-  const saveEdit = async () => {
-    try {
-      const payload = {
-        user_id: editItem.user_id,
-        name: editItem.name,
-        kategorie_id: editItem.kategorie_id,
-        start_datum: DateUtils.isoDateTime(editItem.start_datum_ui),
-        next_due: DateUtils.isoDateTime(
-          editItem.next_due_ui || editItem.start_datum_ui
-        ),
-        active: !!editItem.active,
-        ausgangs_konto_id: editItem.ausgangs_konto_id ?? null,
-        eingangs_konto_id: editItem.eingangs_konto_id ?? null,
-        securities_id: editItem.securities_id ?? null,
-        anteil: editItem.anteil ?? null,
-        betrag: editItem.betrag ?? null,
-      };
-      await api.updateMonthlyCosts(editItem.id, payload);
-      setOk("Eintrag aktualisiert.");
-      closeEdit();
-      loadMonthlyCosts();
-    } catch (e) {
-      console.error(e);
-      setErr("Aktualisieren fehlgeschlagen");
-    }
-  };
+  const saveEdit = () =>
+    saveEditItem(editItem, { api, setOk, closeEdit, loadMonthlyCosts, setErr });
 
   // === Anlegen ===
   const onCreate = async (e) => {
@@ -380,23 +345,18 @@ export default function AddMonthlyCosts() {
 
                 <DualKontoAutocomplete
                   options={optKonten}
-                  // Werte
                   outId={kontoOutId}
                   inId={kontoInId}
-                  // Input-Text
                   outInput={inputKontoOut}
                   inInput={inputKontoIn}
-                  // Handler
                   onOutInput={setInputKontoOut}
                   onInInput={setInputKontoIn}
                   onOutSelect={setKontoOutId}
                   onInSelect={setKontoInId}
-                  // (optional) Validierung wie bei dir: mind. eines muss gesetzt sein
                   errorOut={!kontoOutId && !kontoInId}
                   errorIn={!kontoOutId && !kontoInId}
                   helperTextOut="Mindestens eines der beiden Konto-Felder muss befüllt sein"
                   helperTextIn="Mindestens eines der beiden Konto-Felder muss befüllt sein"
-                  // (optional)
                   loading={loadingOpts}
                 />
 
@@ -526,38 +486,12 @@ export default function AddMonthlyCosts() {
                       <ListItem key={e.id} sx={{ py: 0.75 }}>
                         <ListItemText
                           primary={e.title}
-                          secondary={[
-                            xp.betrag != null
-                              ? `Betrag: ${Number(xp.betrag).toFixed(2)}€`
-                              : null,
-                            xp.kategorie_id
-                              ? `Kategorie: ${catsById[xp.kategorie_id] ?? xp.kategorie_id}`
-                              : null,
-                            xp.ausgangs_konto_id
-                              ? `Ausgang: ${kontenById[xp.ausgangs_konto_id] ?? xp.ausgangs_konto_id}`
-                              : null,
-                            xp.eingangs_konto_id
-                              ? `Eingang: ${kontenById[xp.eingangs_konto_id] ?? xp.eingangs_konto_id}`
-                              : null,
-                            xp.securities_id
-                              ? `Wertpapier: ${securitiesById[xp.securities_id] ?? xp.securities_id}`
-                              : null,
-                            xp.anteil != null
-                              ? `Anteil: ${Number(xp.anteil)}`
-                              : null,
-                            xp.user_id
-                              ? `User: ${usersById[xp.user_id] ?? xp.user_id}`
-                              : null,
-                            xp.start_datum
-                              ? `Start: ${new Date(xp.start_datum).toLocaleDateString("de-DE")}`
-                              : null,
-                            xp.next_due
-                              ? `Nächste: ${new Date(xp.next_due).toLocaleDateString("de-DE")}`
-                              : null,
-                            xp.active ? "Aktiv" : "Inaktiv",
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
+                          secondary={formatHoverSecondary(xp, {
+                            catsById,
+                            kontenById,
+                            securitiesById,
+                            usersById,
+                          })}
                         />
                       </ListItem>
                     );
