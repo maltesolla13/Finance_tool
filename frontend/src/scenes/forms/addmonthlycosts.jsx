@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   TextField,
@@ -28,6 +28,7 @@ import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
+import EditOutlined from "@mui/icons-material/EditOutlined";
 
 // Services
 import { buildMonthlyCostEvents } from "./Services/calendar.utils";
@@ -42,10 +43,14 @@ import {
   SecurityAutocomplete,
 } from "./Services/autocomplete";
 import {
-  makeHoverHandlers,
+  makeHoverController,
   formatHoverSecondary,
 } from "./Services/calendar.hover";
-import { buildEditHandlers, saveEditItem } from "./Services/calendar.edit";
+import {
+  buildEditHandlers,
+  saveEditItem,
+  openEditById,
+} from "./Services/calendar.edit";
 
 export default function AddMonthlyCosts() {
   const theme = useTheme();
@@ -153,6 +158,7 @@ export default function AddMonthlyCosts() {
   }, [startDatum]);
 
   // === MonthlyCosts Liste + Kalender ===
+  const calendarRef = useRef(null);
   const [monthlyCosts, setMonthlyCosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -176,13 +182,14 @@ export default function AddMonthlyCosts() {
     loadMonthlyCosts();
   }, [loadMonthlyCosts]);
 
-  const [monthStart, monthEnd] = useMemo(
-    () => DateUtils.currentMonthRange(new Date()),
-    []
-  );
+  const [{ start: viewStart, end: viewEnd }, setViewRange] = useState(() => {
+    const [s, e] = DateUtils.currentMonthRange(new Date());
+    return { start: s, end: e };
+  });
+
   const events = useMemo(
-    () => buildMonthlyCostEvents(monthlyCosts, monthStart, monthEnd),
-    [monthlyCosts, monthStart, monthEnd]
+    () => buildMonthlyCostEvents(monthlyCosts, viewStart, viewEnd),
+    [monthlyCosts, viewStart, viewEnd]
   );
 
   // === Hover-Popover ===
@@ -191,16 +198,15 @@ export default function AddMonthlyCosts() {
   const [hoverItems, setHoverItems] = useState([]);
   const openHover = Boolean(hoverAnchor);
 
-  const { onEnter: handleEventMouseEnter, onLeave: handleEventMouseLeave } =
-    useMemo(
-      () =>
-        makeHoverHandlers(events, {
-          setHoverAnchor,
-          setHoverItems,
-          setHoverDate,
-        }),
-      [events]
-    );
+  const hoverCtrl = useMemo(
+    () =>
+      makeHoverController(
+        events,
+        { setHoverAnchor, setHoverItems, setHoverDate },
+        { enterDelay: 120, leaveDelay: 160 }
+      ),
+    [events]
+  );
 
   // === Klick -> Edit ===
   const [editOpen, setEditOpen] = useState(false);
@@ -217,7 +223,14 @@ export default function AddMonthlyCosts() {
   };
 
   const saveEdit = () =>
-    saveEditItem(editItem, { api, setOk, closeEdit, loadMonthlyCosts, setErr });
+    saveEditItem(editItem, {
+      api,
+      setOk,
+      closeEdit,
+      loadMonthlyCosts,
+      setErr,
+      setMonthlyCosts,
+    });
 
   // === Anlegen ===
   const onCreate = async (e) => {
@@ -457,16 +470,24 @@ export default function AddMonthlyCosts() {
             </Typography>
 
             <FullCalendar
+              ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
               height="auto"
               events={events}
               eventContent={renderEventContent}
-              eventMouseEnter={handleEventMouseEnter}
-              eventMouseLeave={handleEventMouseLeave}
+              eventMouseEnter={hoverCtrl.onEnter}
+              eventMouseLeave={hoverCtrl.onLeave}
               eventClick={openEditForEvent}
               dayMaxEventRows={3}
-              headerToolbar={{ left: "title", center: "", right: "" }}
+              headerToolbar={{
+                left: "prev,next today",
+                center: "title",
+                right: "",
+              }}
+              datesSet={(arg) =>
+                setViewRange({ start: arg.start, end: arg.end })
+              }
             />
 
             <Popover
@@ -474,25 +495,80 @@ export default function AddMonthlyCosts() {
               anchorEl={hoverAnchor}
               onClose={() => setHoverAnchor(null)}
               anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+              disableScrollLock
+              disableAutoFocus
+              disableEnforceFocus
+              disableRestoreFocus
+              PopperProps={{
+                modifiers: [{ name: "offset", options: { offset: [0, 8] } }],
+              }}
+              PaperProps={{
+                ...hoverCtrl.popoverProps,
+                elevation: 8,
+                sx: {
+                  ...hoverCtrl.popoverProps?.sx,
+                  maxWidth: 480,
+                },
+              }}
             >
-              <Box sx={{ p: 2, maxWidth: 380 }}>
+              <Box sx={{ p: 2, maxWidth: 420 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {hoverDate ? hoverDate.toLocaleDateString() : "Details"}
+                  {hoverDate
+                    ? hoverDate.toLocaleDateString("de-DE")
+                    : "Details"}
                 </Typography>
+
                 <List dense>
                   {hoverItems.map((e) => {
                     const xp = e.extendedProps || {};
+                    const secondary = formatHoverSecondary(xp, {
+                      catsById,
+                      kontenById,
+                      securitiesById,
+                      usersById,
+                    });
+
                     return (
-                      <ListItem key={e.id} sx={{ py: 0.75 }}>
-                        <ListItemText
-                          primary={e.title}
-                          secondary={formatHoverSecondary(xp, {
-                            catsById,
-                            kontenById,
-                            securitiesById,
-                            usersById,
-                          })}
-                        />
+                      <ListItem key={e.id} sx={{ display: "block", py: 1.25 }}>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: 700, mb: 0.25 }}
+                        >
+                          {e.title}
+                        </Typography>
+
+                        <Typography
+                          variant="h6"
+                          sx={{ opacity: 0.9, whiteSpace: "normal" }}
+                        >
+                          {secondary}
+                        </Typography>
+
+                        <Box>
+                          <Button
+                            size="small"
+                            startIcon={<EditOutlined />}
+                            variant="outlined"
+                            onClick={() => {
+                              openEditById(e.id, {
+                                monthlyCosts,
+                                setEditItem,
+                                setEditOpen,
+                              });
+                              setHoverAnchor(null);
+                            }}
+                            sx={{
+                              color: colors.grey[100],
+                              borderColor: colors.grey[100],
+                              "&:hover": {
+                                borderColor: colors.grey[100],
+                                backgroundColor: "rgba(255,255,255,0.06)", // dezenter Hover auf dunklem Theme
+                              },
+                            }}
+                          >
+                            Bearbeiten
+                          </Button>
+                        </Box>
                       </ListItem>
                     );
                   })}
