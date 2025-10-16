@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+from datetime import datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from backend.app.database.db_handling import DBHandler
@@ -14,6 +15,7 @@ class BackendRoutes:
         self.router = APIRouter()
         self.request_handling()
 
+    # ---- Generic CRUD wiring ----------------------------------------------
     def wire_crud(
             self,
             name: str,
@@ -54,6 +56,96 @@ class BackendRoutes:
 
         self.router.include_router(r)
 
+    # ---- Helpers für optionales Update (Merge-Strategie) -----------
+    def _dt(self, x):
+        return x.isoformat() if isinstance(x, datetime) else x
+
+    def _payload_changes(
+            self, payload_obj: object,
+            allowed_fields: list[str]) -> dict:
+        """
+        Extrahiert nur gesetzte Felder aus dem Payload (None wird ignoriert).
+        Funktioniert für pydantic BaseModel wie auch pydantic.dataclasses.
+        """
+        if hasattr(payload_obj, "model_dump"):  # Pydantic v2 Model
+            data = payload_obj.model_dump(
+                exclude={"id"}, exclude_unset=True, exclude_none=True)
+        elif hasattr(payload_obj, "dict"):     # Pydantic v1 Model
+            data = payload_obj.dict(
+                exclude={"id"}, exclude_unset=True, exclude_none=True)
+        else:                # Dataclass (pydantic.dataclasses)
+            raw = dict(getattr(payload_obj, "__dict__", {}) or {})
+            raw.pop("id", None)
+            data = {k: v for k, v in raw.items() if v is not None}
+        # Nur erlaubte Felder durchlassen
+        return {k: v for k, v in data.items() if k in allowed_fields}
+
+    def _merge_for_update(self, db: DBHandler, table: str, id_col: str,
+                          item_id: int, payload_obj: object, fields: list[str],
+                          normalizer=None) -> SimpleNamespace:
+        """
+        Lädt Row, merged Änderungen (exclude None), normalisiert und liefert
+        Namespace mit ALLEN von db_handling.* erwarteten Attributen zurück.
+        """
+        row = db.cursor.execute(
+            f"SELECT {', '.join(fields)} FROM {table} WHERE {id_col}=?",
+            (item_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=404, detail=f"{table} nicht gefunden")
+
+        changes = self._payload_changes(payload_obj, fields)
+
+        # Bestehende DB-Werte als Basis (vollständig)
+        data = {k: row[k] for k in fields}
+        # Änderungen drüberbügeln
+        data.update(changes)
+
+        # Normalisieren (Typen, Defaults, Booleans etc.)
+        if normalizer:
+            data = normalizer(data)
+
+        # ID aus URL als Quelle der Wahrheit
+        data["id"] = item_id
+        return SimpleNamespace(**data)
+
+    # Spezifische Normalizer für Tabellen, abhängig vom erwarteten DB-Update
+
+    def _normalize_monthlycosts(self, d: dict) -> dict:
+        out = dict(d)
+        # ints
+        for k in ("user_id", "kategorie_id", "ausgangs_konto_id",
+                  "eingangs_konto_id", "securities_id"):
+            if out.get(k) is not None:
+                out[k] = int(out[k])
+        # Datum → ISO-String
+        if out.get("start_datum") is not None:
+            out["start_datum"] = self._dt(out["start_datum"])
+        if out.get("next_due") is not None:
+            out["next_due"] = self._dt(out["next_due"])
+        # Fallback next_due = start_datum
+        if not out.get("next_due"):
+            out["next_due"] = out.get("start_datum")
+        # active → 0/1 (INTEGER)
+        out["active"] = 1 if bool(out.get("active")) else 0
+        return out
+
+    def _normalize_receipt(self, d: dict) -> dict:
+        out = dict(d)
+        if out.get("datum") is not None:
+            out["datum"] = self._dt(out["datum"])
+        return out
+
+    def _normalize_savings(self, d: dict) -> dict:
+        out = dict(d)
+        if out.get("start_datum") is not None:
+            out["start_datum"] = self._dt(out["start_datum"])
+        if out.get("end_datum") is not None:
+            out["end_datum"] = self._dt(out["end_datum"])
+        return out
+
+    # ---- Request/Route-Definitionen -----------------------------------------
     def request_handling(self) -> None:
         opt_router = APIRouter(prefix="/options", tags=["Options"])
 
@@ -282,7 +374,7 @@ class BackendRoutes:
         def update_laden(laden_id: int, payload: SchemaLaden) -> None:
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_konten()]
+                ids = [r["id"] for r in db.load_laden()]
                 if laden_id not in ids:
                     raise HTTPException(status_code=404,
                                         detail="Laden not found")
@@ -294,7 +386,7 @@ class BackendRoutes:
         def delete_laden(laden_id: int) -> None:
             db = DBHandler()
             try:
-                db.cursor.execute("DELETE FROM konten WHERE id = ?",
+                db.cursor.execute("DELETE FROM laden WHERE id = ?",
                                   (laden_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
@@ -335,27 +427,19 @@ class BackendRoutes:
 
                 # Normalisieren
                 p.user_id = int(p.user_id) if p.user_id is not None else None
-                p.kategorie_id = (
-                    int(p.kategorie_id)
-                    if p.kategorie_id is not None
-                    else None)
-                p.ausgangs_konto_id = (
-                    int(p.ausgangs_konto_id)
-                    if p.ausgangs_konto_id
-                    else None)
-                p.eingangs_konto_id = (
-                    int(p.eingangs_konto_id)
-                    if p.eingangs_konto_id
-                    else None)
-                p.securities_id = (
-                    int(p.securities_id)
-                    if p.securities_id
-                    else None)
+                p.kategorie_id = int(
+                    p.kategorie_id) if p.kategorie_id is not None else None
+                p.ausgangs_konto_id = int(
+                    p.ausgangs_konto_id) if p.ausgangs_konto_id else None
+                p.eingangs_konto_id = int(
+                    p.eingangs_konto_id) if p.eingangs_konto_id else None
+                p.securities_id = int(
+                    p.securities_id) if p.securities_id else None
                 p.active = 1 if bool(p.active) else 0
                 if not p.next_due:
                     p.next_due = p.start_datum  # fallback
 
-                # FK-Existenz-Checks
+                # FK-Checks
                 def exists(table, id_):
                     if id_ is None:
                         return True
@@ -375,17 +459,15 @@ class BackendRoutes:
                         "konten", p.eingangs_konto_id):
                     raise HTTPException(
                         400, detail="Unbekannter eingangs_konto_id")
-                if (
-                    p.securities_id
-                    and not exists(
-                        "securities", p.securities_id)):
+                if p.securities_id and not exists(
+                        "securities", p.securities_id):
                     raise HTTPException(
                         400, detail="Unbekannter securities_id (Wertpapier)")
 
                 if p.securities_id and (p.betrag is None and p.anteil is None):
                     raise HTTPException(
-                        400, detail="Bei Wertpapier bitte"
-                        "Betrag oder Anteil angeben.")
+                        400, detail="Bei Wertpapier bitte Betrag oder Anteil"
+                        "angeben.")
 
                 db.insert_monthlycosts(p)
                 db.conn.commit()
@@ -394,22 +476,30 @@ class BackendRoutes:
 
         def update_monthlycosts(
                 monthlycosts_id: int,
-                payload: SchemaMonthlyCosts
-        ) -> None:
+                payload: SchemaMonthlyCosts) -> None:
+            """
+            Optionales Update: Payload-Felder sind alle optional.
+            → Bestehenden Datensatz laden, Änderungen mergen, normalisieren,
+            dann voll updaten.
+            """
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_monthlycosts()]
-                if monthlycosts_id not in ids:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="MonthlyCosts nicht gefunden"
-                    )
-                # DBHandler.update_monthlycosts erwartet ein Objekt mit id
-                from types import SimpleNamespace
-                db.update_monthlycosts(SimpleNamespace(
-                    id=monthlycosts_id,
-                    **payload.__dict__
-                ))
+                # Felder, die db_handling.update_monthlycosts erwartet:
+                fields = [
+                    "user_id", "name", "betrag", "anteil", "securities_id",
+                    "kategorie_id", "ausgangs_konto_id", "eingangs_konto_id",
+                    "start_datum", "next_due", "active",
+                ]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="monthlycosts",
+                    id_col="id",
+                    item_id=monthlycosts_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_monthlycosts,
+                )
+                db.update_monthlycosts(ns)  # erwartet voll befülltes Objekt
             finally:
                 db.close()
 
@@ -418,11 +508,12 @@ class BackendRoutes:
             try:
                 db.cursor.execute(
                     "DELETE FROM monthlycosts WHERE id = ?",
-                    (monthlycosts_id,))
+                    (monthlycosts_id,),
+                )
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
                         status_code=404,
-                        detail="MonthlyCosts nicht gefunden"
+                        detail="MonthlyCosts nicht gefunden",
                     )
                 db.conn.commit()
             finally:
@@ -459,29 +550,29 @@ class BackendRoutes:
         def update_receipt(receipt_id: int, payload: SchemaReceipt) -> None:
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_receipt()]
-                if receipt_id not in ids:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="receipt nicht gefunden"
-                    )
-                from types import SimpleNamespace
-                db.update_receipt(SimpleNamespace(
-                    id=receipt_id,
-                    **payload.__dict__))
+                fields = ["user_id", "name", "betrag", "kategorie_id",
+                          "konto_id", "laden_id", "datum"]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="receipt",
+                    id_col="id",
+                    item_id=receipt_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_receipt,
+                )
+                db.update_receipt(ns)
             finally:
                 db.close()
 
         def delete_receipt(receipt_id: int) -> None:
             db = DBHandler()
             try:
-                db.cursor.execute(
-                    "DELETE FROM receipt WHERE id = ?",
-                    (receipt_id,))
+                db.cursor.execute("DELETE FROM receipt WHERE id = ?",
+                                  (receipt_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
-                        status_code=404,
-                        detail="receipt nicht gefunden")
+                        status_code=404, detail="receipt nicht gefunden")
                 db.conn.commit()
             finally:
                 db.close()
@@ -513,20 +604,15 @@ class BackendRoutes:
 
         def update_securities(
                 securities_id: int,
-                payload: SchemaSecurities
-        ) -> None:
+                payload: SchemaSecurities) -> None:
             db = DBHandler()
             try:
                 ids = [r["id"] for r in db.load_securities()]
                 if securities_id not in ids:
                     raise HTTPException(
-                        status_code=404,
-                        detail="Securities nicht gefunden"
-                    )
-                from types import SimpleNamespace
+                        status_code=404, detail="Securities nicht gefunden")
                 db.update_securities(
-                    SimpleNamespace(
-                        id=securities_id, **payload.__dict__))
+                    SimpleNamespace(id=securities_id, **payload.__dict__))
             finally:
                 db.close()
 
@@ -534,12 +620,10 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "DELETE FROM securities WHERE id = ?",
-                    (securities_id,))
+                    "DELETE FROM securities WHERE id = ?", (securities_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
-                        status_code=404,
-                        detail="Securities nicht gefunden")
+                        status_code=404, detail="Securities nicht gefunden")
                 db.conn.commit()
             finally:
                 db.close()
@@ -574,22 +658,22 @@ class BackendRoutes:
             finally:
                 db.close()
 
-        def update_savings(
-                savings_id: int,
-                payload: SchemaSparziel
-        ) -> None:
+        def update_savings(savings_id: int, payload: SchemaSparziel) -> None:
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_savings()]
-                if savings_id not in ids:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="savings nicht gefunden"
-                    )
-                from types import SimpleNamespace
-                db.update_savings(
-                    SimpleNamespace(
-                        id=savings_id, **payload.__dict__))
+                fields = ["name", "user_id", "konto_id", "kategorie_id",
+                          "betrag", "start_datum", "end_datum",
+                          "sparrate_e", "sparrate_p"]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="savings",
+                    id_col="id",
+                    item_id=savings_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_savings,
+                )
+                db.update_savings(ns)
             finally:
                 db.close()
 
@@ -597,12 +681,10 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 db.cursor.execute(
-                    "DELETE FROM savings WHERE id = ?",
-                    (savings_id,))
+                    "DELETE FROM savings WHERE id = ?", (savings_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
-                        status_code=404,
-                        detail="savings nicht gefunden")
+                        status_code=404, detail="savings nicht gefunden")
                 db.conn.commit()
             finally:
                 db.close()

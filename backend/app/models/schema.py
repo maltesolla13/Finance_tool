@@ -6,112 +6,112 @@ from typing import Optional
 
 @dataclass
 class SchemaOption:
-    id: int
-    name: str
+    id: Optional[int] = None
+    name: Optional[str] = None
 
 
 @dataclass
 class SchemaKonto:
-    name: str
+    name: Optional[str] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaUser:
-    name: str
+    name: Optional[str] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaKategorie:
-    name: str
+    name: Optional[str] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaAusgabentyp:
-    name: str
+    name: Optional[str] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaLaden:
-    name: str
+    name: Optional[str] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaSecurities:
-    name: str
-    isin: str
-    ticker: str  # (stock, etf, crypto)
-    instrument: str
+    name: Optional[str] = None
+    isin: Optional[str] = None
+    ticker: Optional[str] = None  # (stock, etf, crypto)
+    instrument: Optional[str] = None
     id:    Optional[int] = None
 
 
 @dataclass
 class SchemaAktienKurs:
-    securities_id: int
-    kurs: Decimal
-    datum: datetime
+    securities_id: Optional[int] = None
+    kurs: Optional[Decimal] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaKontobewegung:
-    user_id: int
-    name: str
-    betrag: Decimal
-    kategorie_id: int
-    konto_id: int
-    type_id: int
-    datum: datetime
+    user_id: Optional[int] = None
+    name: Optional[str] = None
+    betrag: Optional[Decimal] = None
+    kategorie_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    type_id: Optional[int] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaKontostand:
-    user_id: int
-    konto_id: int
-    kontostand: Decimal
-    datum: datetime
+    user_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    kontostand: Optional[Decimal] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaDepotbewegung:
-    user_id: int
-    konto_id: int
-    securities_id: int
-    kategorie_id: int
-    type_id: int
-    betrag: Decimal
-    anteile: Decimal
-    datum: datetime
+    user_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    securities_id: Optional[int] = None
+    kategorie_id: Optional[int] = None
+    type_id: Optional[int] = None
+    betrag: Optional[Decimal] = None
+    anteile: Optional[Decimal] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaDepotstand:
-    user_id: int
-    konto_id: int
-    securities_id: int
-    summe_betrag: Decimal
-    summe_anteil: Decimal
-    wert: Decimal
-    entwicklung: Decimal
-    datum: datetime
+    user_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    securities_id: Optional[int] = None
+    summe_betrag: Optional[Decimal] = None
+    summe_anteil: Optional[Decimal] = None
+    wert: Optional[Decimal] = None
+    entwicklung: Optional[Decimal] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
 
 
 @dataclass
 class SchemaSparziel:
-    name: str
-    user_id: int
-    konto_id: int
-    kategorie_id: int
-    betrag: Decimal
-    start_datum: datetime
+    name: Optional[str] = None
+    user_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    kategorie_id: Optional[int] = None
+    betrag: Optional[Decimal] = None
+    start_datum: Optional[datetime] = None
     end_datum: Optional[datetime] = None
     sparrate_e: Optional[Decimal] = None
     sparrate_p: Optional[Decimal] = None
@@ -120,12 +120,12 @@ class SchemaSparziel:
 
 @dataclass
 class SchemaMonthlyCosts:
-    user_id: int
-    name: str
-    kategorie_id: int
-    start_datum: datetime
-    next_due: datetime
-    active: bool
+    user_id: Optional[int] = None
+    name: Optional[str] = None
+    kategorie_id: Optional[int] = None
+    start_datum: Optional[datetime] = None
+    next_due: Optional[datetime] = None
+    active: Optional[bool] = None
     id: Optional[int] = None
     ausgangs_konto_id: Optional[int] = None
     eingangs_konto_id: Optional[int] = None
@@ -136,11 +136,11 @@ class SchemaMonthlyCosts:
 
 @dataclass
 class SchemaReceipt:
-    user_id: int
-    name: str
-    betrag: Decimal
-    kategorie_id: int
-    konto_id: int
-    laden_id: int
-    datum: datetime
+    user_id: Optional[int] = None
+    name: Optional[str] = None
+    betrag: Optional[Decimal] = None
+    kategorie_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    laden_id: Optional[int] = None
+    datum: Optional[datetime] = None
     id: Optional[int] = None
