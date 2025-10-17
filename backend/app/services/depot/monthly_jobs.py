@@ -20,11 +20,10 @@ def run_monthly_securities_jobs(run_date: datetime) -> dict:
     skipped = 0
     try:
         rows = db.cursor.execute("""
-            SELECT mc.*
-            FROM monthlycosts mc
+            SELECT mc.* FROM monthlycosts mc
             WHERE mc.active = 1
-              AND mc.securities_id IS NOT NULL
-              AND DATE(mc.next_due) <= DATE(?)
+            AND mc.securities_id IS NOT NULL
+            AND DATE(mc.next_due) <= DATE(?)
         """, (run_date_iso,)).fetchall()
 
         for mc in rows:
@@ -53,13 +52,12 @@ def run_monthly_securities_jobs(run_date: datetime) -> dict:
             existed = db.cursor.execute("""
                 SELECT 1 FROM depotbewegung
                 WHERE user_id = ?
-                  AND konto_id = ?
-                  AND securities_id = ?
-                  AND DATE(datum) = DATE(?)
-                  AND ABS(betrag - ?) < 0.0001
+                AND konto_id = ?
+                AND securities_id = ?
+                AND DATE(datum) = DATE(?)
+                AND ABS(betrag - ?) < 0.0001
             """, (mc["user_id"], konto_id, mc["securities_id"],
-                  run_date_iso, float(amount))
-            ).fetchone()
+                  run_date_iso, float(amount))).fetchone()
 
             if existed:
                 skipped += 1
