@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from backend.app.database.db_config import init_db
-from backend.app.services.backend_api import BackendRoutes
+from backend.app.services.apis.backend_api import BackendRoutes
+from backend.app.services.scheduler import install_jobs
 
 # Starten:
 # python -m uvicorn main:app --reload
@@ -14,6 +15,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Finance Tool API", lifespan=lifespan)
+install_jobs(app)
 
 # CORS – passe Origins an dein Frontend an (Vite: 5173)
 origins = [

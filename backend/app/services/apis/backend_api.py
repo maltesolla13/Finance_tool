@@ -3,10 +3,13 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
+from backend.app.services.depot.daily_jobs import update_depotstand_for_date
+from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
 from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
-    SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel
+    SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel, \
+    SchemaDepotbewegung, SchemaDepotstand
 
 
 class BackendRoutes:
@@ -220,6 +223,18 @@ class BackendRoutes:
                 return SchemaOption(id=new_id, name=name)
             finally:
                 db.close()
+
+        jobs = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+        @jobs.post("/monthly-securities/run")
+        def run_monthly(date: str | None = None):
+            run_date = datetime.fromisoformat(date) if date else datetime.now()
+            return run_monthly_securities_jobs(run_date)
+
+        @jobs.post("/depotstand/run")
+        def run_depotstand(date: str | None = None):
+            run_date = datetime.fromisoformat(date) if date else datetime.now()
+            return update_depotstand_for_date(run_date)
 
         # ---- Konto ----
         def get_konto() -> List[SchemaKonto]:
@@ -689,6 +704,109 @@ class BackendRoutes:
             finally:
                 db.close()
 
+        # ---- Depot Bewegung ----
+        def get_depotbewegung() -> List[SchemaDepotbewegung]:
+            db = DBHandler()
+            try:
+                rows = db.load_depotbewegung()
+                return [
+                    SchemaDepotbewegung(
+                        id=r["id"],
+                        name=r["name"],
+                        isin=r["isin"],
+                        ticker=r["ticker"],
+                        instrument=r["instrument"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_depotbewegung(payload: SchemaDepotbewegung) -> None:
+            db = DBHandler()
+            try:
+                db.insert_depotbewegung(payload)
+            finally:
+                db.close()
+
+        def update_depotbewegung(
+                depotbewegung_id: int,
+                payload: SchemaDepotbewegung) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_depotbewegung()]
+                if depotbewegung_id not in ids:
+                    raise HTTPException(
+                        status_code=404, detail="Depotbewegung nicht gefunden")
+                db.update_depotbewegung(
+                    SimpleNamespace(id=depotbewegung_id, **payload.__dict__))
+            finally:
+                db.close()
+
+        def delete_depotbewegung(depotbewegung_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM depotbewegung WHERE id = ?",
+                    (depotbewegung_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Depotbewegung nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
+        # ---- Depot Stand ----
+        def get_depotstand() -> List[SchemaDepotstand]:
+            db = DBHandler()
+            try:
+                rows = db.load_depotstand()
+                return [
+                    SchemaDepotstand(
+                        id=r["id"],
+                        name=r["name"],
+                        isin=r["isin"],
+                        ticker=r["ticker"],
+                        instrument=r["instrument"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_depotstand(payload: SchemaDepotstand) -> None:
+            db = DBHandler()
+            try:
+                db.insert_depotstand(payload)
+            finally:
+                db.close()
+
+        def update_depotstand(
+                depotstand_id: int,
+                payload: SchemaDepotstand) -> None:
+            db = DBHandler()
+            try:
+                ids = [r["id"] for r in db.load_depotstand()]
+                if depotstand_id not in ids:
+                    raise HTTPException(
+                        status_code=404, detail="Depotstand nicht gefunden")
+                db.update_depotstand(
+                    SimpleNamespace(id=depotstand_id, **payload.__dict__))
+            finally:
+                db.close()
+
+        def delete_depotstand(depotstand_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM depotstand WHERE id = ?", (depotstand_id,))
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404, detail="Depotstand nicht gefunden")
+                db.conn.commit()
+            finally:
+                db.close()
+
         # ---- Registry: alles an EINER Stelle deklarieren ----
         resources = [
             ("konten", SchemaKonto, SchemaKonto, get_konto, create_konto,
@@ -720,6 +838,14 @@ class BackendRoutes:
              get_savings, create_savings, update_savings,
              delete_savings, "Savings"),
 
+            ("depotbewegung", SchemaDepotbewegung, SchemaDepotbewegung,
+             get_depotbewegung, create_depotbewegung, update_depotbewegung,
+             delete_depotbewegung, "Depotbewegung"),
+
+            ("depotstand", SchemaDepotstand, SchemaDepotstand,
+             get_depotstand, create_depotstand, update_depotstand,
+             delete_depotstand, "Depotstand"),
+
         ]
 
         for (
@@ -732,3 +858,4 @@ class BackendRoutes:
             )
 
         self.router.include_router(opt_router)
+        self.router.include_router(jobs)
