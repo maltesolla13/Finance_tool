@@ -34,27 +34,27 @@ class BackendRoutes:
 
         # GET /{name}
         @r.get("", response_model=List[dto_out])
-        def list_items(_list_fn=list_fn):
-            return _list_fn()
+        def list_items():
+            return list_fn()
 
         # POST /{name}
         @r.post("", status_code=201)
-        def create_item(payload: Any, _create_fn=create_fn):
-            _create_fn(payload)
+        def create_item(payload: Any):
+            create_fn(payload)
             return {"ok": True}
         create_item.__annotations__["payload"] = dto_in
 
         # PUT /{name}/{item_id}
         @r.put("/{item_id}")
-        def update_item(item_id: int, payload: Any, _update_fn=update_fn):
-            _update_fn(item_id, payload)
+        def update_item(item_id: int, payload: Any):
+            update_fn(item_id, payload)
             return {"ok": True}
         update_item.__annotations__["payload"] = dto_in
 
         # DELETE /{name}/{item_id}
         @r.delete("/{item_id}")
-        def delete_item(item_id: int, _delete_fn=delete_fn):
-            _delete_fn(item_id)
+        def delete_item(item_id: int):
+            delete_fn(item_id)
             return {"ok": True}
 
         self.router.include_router(r)
