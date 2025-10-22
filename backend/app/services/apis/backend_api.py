@@ -3,13 +3,50 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 from backend.app.services.depot.daily_jobs import update_depotstand_for_date
 from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
 from backend.app.database.db_handling import DBHandler
+from backend.app.services.apis.market_api import (
+    fetch_high_on_or_after, fetch_low_on_or_after
+)
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
     SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel, \
     SchemaDepotbewegung, SchemaDepotstand
+
+TZ = ZoneInfo("Europe/Berlin")
+
+
+def _parse_date_qs(date: str | None) -> datetime:
+    if not date:
+        return datetime.now(TZ)
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(date, fmt).replace(tzinfo=TZ)
+        except ValueError:
+            pass
+    # falls ISO mit Offset kommt:
+    return datetime.fromisoformat(date)
+
+
+r_market = APIRouter(prefix="/market", tags=["Market"])
+
+
+@r_market.get("/high")
+def market_high(ticker: str = Query(..., examples=["NVDA"]),
+                date: str | None = Query(None, examples=["2025-10-21"])):
+    dt = _parse_date_qs(date)
+    v = float(fetch_high_on_or_after(ticker, dt))
+    return {"ticker": ticker, "date_used": dt.strftime("%Y-%m-%d"), "high": v}
+
+
+@r_market.get("/low")
+def market_low(ticker: str = Query(..., examples=["NVDA"]),
+               date: str | None = Query(None, examples=["2025-10-21"])):
+    dt = _parse_date_qs(date)
+    v = float(fetch_low_on_or_after(ticker, dt))
+    return {"ticker": ticker, "date_used": dt.strftime("%Y-%m-%d"), "low": v}
 
 
 class BackendRoutes:
@@ -228,12 +265,12 @@ class BackendRoutes:
 
         @jobs.post("/monthly-securities/run")
         def run_monthly(date: str | None = None):
-            run_date = datetime.fromisoformat(date) if date else datetime.now()
+            run_date = _parse_date_qs(date)
             return run_monthly_securities_jobs(run_date)
 
         @jobs.post("/depotstand/run")
         def run_depotstand(date: str | None = None):
-            run_date = datetime.fromisoformat(date) if date else datetime.now()
+            run_date = _parse_date_qs(date)
             return update_depotstand_for_date(run_date)
 
         # ---- Konto ----
@@ -426,8 +463,12 @@ class BackendRoutes:
                         kategorie_id=r["kategorie_id"],
                         ausgangs_konto_id=r["ausgangs_konto_id"],
                         eingangs_konto_id=r["eingangs_konto_id"],
-                        start_datum=r["start_datum"],
-                        next_due=r["next_due"],
+                        start_datum=(r["start_datum"][:10]
+                                     if r["start_datum"]
+                                     else None),
+                        next_due=(r["next_due"][:10]
+                                  if r["next_due"]
+                                  else None),
                         active=bool(r["active"]),
                     )
                     for r in rows
@@ -859,3 +900,4 @@ class BackendRoutes:
 
         self.router.include_router(opt_router)
         self.router.include_router(jobs)
+        self.router.include_router(r_market)
