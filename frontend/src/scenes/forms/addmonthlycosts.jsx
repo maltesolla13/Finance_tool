@@ -31,7 +31,10 @@ import Header from "../../components/Header";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 
 // Services
-import { buildMonthlyCostEvents } from "./Services/calendar.utils";
+import {
+  buildMonthlyCostEvents,
+  buildDepotSparplanEvents,
+} from "./Services/calendar.utils";
 import { OptionsService } from "./Services/options.service";
 import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
@@ -161,6 +164,7 @@ export default function AddMonthlyCosts() {
   const [editErrors, setEditErrors] = useState({});
   const calendarRef = useRef(null);
   const [monthlyCosts, setMonthlyCosts] = useState([]);
+  const [depotMoves, setDepotMoves] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
@@ -188,10 +192,32 @@ export default function AddMonthlyCosts() {
     return { start: s, end: e };
   });
 
-  const events = useMemo(
-    () => buildMonthlyCostEvents(monthlyCosts, viewStart, viewEnd),
-    [monthlyCosts, viewStart, viewEnd]
-  );
+  // beide Quellen zusammenführen
+  const events = useMemo(() => {
+    const plan = buildMonthlyCostEvents(monthlyCosts, viewStart, viewEnd);
+    const execs = buildDepotSparplanEvents(depotMoves, viewStart, viewEnd);
+    return [...plan, ...execs];
+  }, [monthlyCosts, depotMoves, viewStart, viewEnd]);
+
+  // Depotbewegungen nachladen, sobald sich der sichtbare Bereich ändert
+  const loadDepotMoves = useCallback(async () => {
+    try {
+      const params = {
+        from: viewStart.toISOString(),
+        to: viewEnd.toISOString(),
+        type: "Sparplan",
+      };
+      const rows = await api.listDepotbewegung(params);
+      setDepotMoves(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.warn("Depotbewegung laden fehlgeschlagen", e);
+      setDepotMoves([]);
+    }
+  }, [api, viewStart, viewEnd]);
+
+  useEffect(() => {
+    loadDepotMoves();
+  }, [loadDepotMoves]);
 
   // === Klick-Popover ===
   const [infoAnchor, setInfoAnchor] = useState(null);
@@ -275,7 +301,9 @@ export default function AddMonthlyCosts() {
 
   // === Custom Event Content: Name + farbiger Punkt (aktiv/inaktiv) ===
   const renderEventContent = (arg) => {
-    const activeFlag = !!arg.event.extendedProps.active;
+    const xp = arg.event.extendedProps || {};
+    const isDepot = xp.__source === "depotbewegung";
+    const activeFlag = isDepot ? false : !!xp.active;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span
@@ -285,7 +313,7 @@ export default function AddMonthlyCosts() {
             width: 8,
             height: 8,
             borderRadius: 999,
-            background: activeFlag ? "#26a69a" : "#9e9e9e",
+            background: activeFlag ? "#26a69a" : "#9e9e9e", // Depot = grau
             display: "inline-block",
           }}
         />
@@ -538,31 +566,27 @@ export default function AddMonthlyCosts() {
                             })}
                           </Typography>
 
-                          <Box>
-                            <Button
-                              size="small"
-                              startIcon={<EditOutlined />}
-                              variant="outlined"
-                              onClick={() => {
-                                openEditById(e.id, {
-                                  monthlyCosts,
-                                  setEditItem,
-                                  setEditOpen,
-                                });
-                                clickCtrl.close(); // Popover schließen
-                              }}
-                              sx={{
-                                color: colors.grey[100],
-                                borderColor: colors.grey[100],
-                                "&:hover": {
-                                  borderColor: colors.grey[100],
-                                  backgroundColor: "rgba(255,255,255,0.06)", // dezenter Hover auf dunklem Theme
-                                },
-                              }}
-                            >
-                              Bearbeiten
-                            </Button>
-                          </Box>
+                          {e.extendedProps?.editable &&
+                            e.extendedProps?.__source === "monthlycost" && (
+                              <Box>
+                                <Button
+                                  size="small"
+                                  startIcon={<EditOutlined />}
+                                  variant="outlined"
+                                  onClick={() => {
+                                    openEditById(e.id, {
+                                      monthlyCosts,
+                                      setEditItem,
+                                      setEditOpen,
+                                    });
+                                    clickCtrl.close();
+                                  }}
+                                  sx={{}}
+                                >
+                                  Bearbeiten
+                                </Button>
+                              </Box>
+                            )}
                         </ListItem>
                       );
                     })}

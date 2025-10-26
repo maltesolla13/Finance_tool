@@ -17,6 +17,8 @@ import AddCardOutlinedIcon from "@mui/icons-material/AddCardOutlined"; //Konto
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined"; //Einkauf
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined"; //Fixkosten
 import AddCircleOutlineOutlinedIcon from "@mui/icons-material/AddCircleOutlineOutlined"; //Wertpapier
+import SavingsOutlinedIcon from "@mui/icons-material/SavingsOutlined"; //Sparen
+import EuroOutlinedIcon from "@mui/icons-material/EuroOutlined"; // Buy Sell Securities
 
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined"; //Portfolio
 
@@ -25,7 +27,6 @@ import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalance
 
 import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined"; //MonthlyCost
 
-import SavingsOutlinedIcon from "@mui/icons-material/SavingsOutlined"; //Sparen
 import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined"; //PriceCheck
 
 const Item = ({ title, to, icon, selected, setSelected }) => {
@@ -198,6 +199,13 @@ const Sidebar = () => {
                 title="Add new Saving"
                 to="/forms/addsavings"
                 icon={<SavingsOutlinedIcon />}
+                selected={selected}
+                setSelected={setSelected}
+              />
+              <Item
+                title="Buy / sell securities"
+                to="/forms/buysellsecurities"
+                icon={<EuroOutlinedIcon />}
                 selected={selected}
                 setSelected={setSelected}
               />

@@ -108,4 +108,32 @@ export class ApiRequests {
   deleteSavings(id) {
     return this.api.delete(`/savings/${id}`);
   }
+
+  // Depot Bewegung
+  listDepotbewegung(params = {}) {
+    return this.api.get("/depotbewegung", params);
+  }
+  createDepotBewegung(data) {
+    return this.api.post("/depotbewegung", data);
+  }
+  updateDepotBewegung(id, data) {
+    return this.api.put(`/depotbewegung/${id}`, data);
+  }
+  deleteDepotBewegung(id) {
+    return this.api.delete(`/depotbewegung/${id}`);
+  }
+
+  // Depot Stand
+  listDepotStand() {
+    return this.api.get("/depotstand");
+  }
+  createDepotStand(data) {
+    return this.api.post("/depotstand", data);
+  }
+  updateDepotStand(id, data) {
+    return this.api.put(`/depotstand/${id}`, data);
+  }
+  deleteDepotStand(id) {
+    return this.api.delete(`/depotstand/${id}`);
+  }
 }
