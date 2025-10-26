@@ -26,6 +26,33 @@ def _first_trading_day_ohlc(ticker: str, date: datetime, interval: str = "1d"):
     raise ValueError(f"No OHLC for {ticker} around {date:%Y-%m-%d}")
 
 
+def _last_trading_day_ohlc(ticker: str, date: datetime, interval: str = "1d"):
+    """
+    Liefert OHLC des letzten Tages <= date mit Kursdaten (max. 7 Tage zurück).
+    """
+    current_date = date
+    for _ in range(7):
+        # kleines Fenster zurück + 1 nach vorn, dann <= date filtern
+        start_str = (current_date - timedelta(days=7)).strftime("%Y-%m-%d")
+        end_str = (current_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        hist = yf.Ticker(ticker).history(
+            start=start_str, end=end_str, interval=interval)
+        if not hist.empty:
+            filt = hist[hist.index.date <= date.date()]
+            if not filt.empty:
+                row = filt.iloc[-1]
+                return {
+                    "open":  Decimal(str(row["Open"])),
+                    "high":  Decimal(str(row["High"])),
+                    "low":   Decimal(str(row["Low"])),
+                    "close": Decimal(str(row["Close"])),
+                    "date":  datetime.combine(filt.index[-1].date(),
+                                              datetime.min.time())
+                }
+        current_date -= timedelta(days=1)
+    raise ValueError(f"No OHLC <= {date:%Y-%m-%d} for {ticker}")
+
+
 # ---- Währung ermitteln (inkl. London-GBp) -----------------------------------
 
 EX_SUFFIX_TO_CCY = {
@@ -104,3 +131,15 @@ def fetch_low_on_or_after(
         ticker: str, date: datetime, in_eur: bool = True) -> Decimal:
     o = _first_trading_day_ohlc(ticker, date)
     return _to_eur(o["low"], ticker, o["date"]) if in_eur else o["low"]
+
+
+def fetch_low_on_or_before(
+        ticker: str, date: datetime, in_eur: bool = True) -> Decimal:
+    o = _last_trading_day_ohlc(ticker, date)
+    return _to_eur(o["low"], ticker, o["date"]) if in_eur else o["low"]
+
+
+def fetch_high_on_or_before(
+        ticker: str, date: datetime, in_eur: bool = True) -> Decimal:
+    o = _last_trading_day_ohlc(ticker, date)
+    return _to_eur(o["high"], ticker, o["date"]) if in_eur else o["high"]

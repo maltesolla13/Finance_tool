@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
-from backend.app.services.depot.daily_jobs import update_depotstand_for_date
+from backend.app.services.depot.daily_jobs import ensure_depotstand_from_last
 from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import (
@@ -271,7 +271,7 @@ class BackendRoutes:
         @jobs.post("/depotstand/run")
         def run_depotstand(date: str | None = None):
             run_date = _parse_date_qs(date)
-            return update_depotstand_for_date(run_date)
+            return ensure_depotstand_from_last(run_date)
 
         # ---- Konto ----
         def get_konto() -> List[SchemaKonto]:
