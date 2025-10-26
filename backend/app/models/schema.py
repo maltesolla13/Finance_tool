@@ -64,7 +64,7 @@ class SchemaKontobewegung:
     betrag: Optional[Decimal] = None
     kategorie_id: Optional[int] = None
     konto_id: Optional[int] = None
-    type_id: Optional[int] = None
+    type: Optional[str] = None
     datum: Optional[datetime] = None
     id: Optional[int] = None
 
@@ -84,7 +84,7 @@ class SchemaDepotbewegung:
     konto_id: Optional[int] = None
     securities_id: Optional[int] = None
     kategorie_id: Optional[int] = None
-    type_id: Optional[int] = None
+    type: Optional[str] = None
     betrag: Optional[Decimal] = None
     anteile: Optional[Decimal] = None
     datum: Optional[datetime] = None

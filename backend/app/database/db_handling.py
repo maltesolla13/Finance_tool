@@ -430,7 +430,7 @@ class DBHandler:
         Input
         -----
         kontobewegung: Ein Objekt mit Attributen
-            'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id', 'type_id',
+            'user_id', 'name', 'betrag', 'kategorie_id', 'konto_id', 'type',
             'datum'
 
         Response
@@ -439,7 +439,7 @@ class DBHandler:
         """
         self.cursor.execute("""
             INSERT INTO kontobewegung (
-                    user_id, name, betrag, kategorie_id, konto_id, type_id,
+                    user_id, name, betrag, kategorie_id, konto_id, type,
                     datum)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -448,7 +448,7 @@ class DBHandler:
             _num(kontobewegung.betrag),
             kontobewegung.kategorie_id,
             kontobewegung.konto_id,
-            kontobewegung.type_id,
+            kontobewegung.type,
             _dt(kontobewegung.datum)
         ))
 
@@ -465,10 +465,10 @@ class DBHandler:
         --------
         List[Tuple[int, int, str, float, int, int, int, str]]
             Liste mit Tupeln (id, user_id, name, betrag, kategorie_id,
-            konto_id, type_id, datum) der kontobewegung
+            konto_id, type, datum) der kontobewegung
         """
         self.cursor.execute("SELECT id, user_id, name, betrag, kategorie_id,\
-                            konto_id, type_id, datum FROM kontobewegung")
+                            konto_id, type, datum FROM kontobewegung")
         kontobewegung = self.cursor.fetchall()
         return kontobewegung
 
@@ -528,7 +528,7 @@ class DBHandler:
         Input
         -----
         depotbewegung: Ein Objekt mit Attribut
-            'user_id', 'konto_id', 'securities_id', 'kategorie_id', 'type_id',
+            'user_id', 'konto_id', 'securities_id', 'kategorie_id', 'type',
             'betrag', 'anteile', 'datum'
 
         Response
@@ -537,14 +537,14 @@ class DBHandler:
         """
         self.cursor.execute("""
             INSERT INTO depotbewegung (user_id, konto_id, securities_id,
-                    kategorie_id, type_id, betrag, anteile, datum)
+                    kategorie_id, type, betrag, anteile, datum)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             depotbewegung.user_id,
             depotbewegung.konto_id,
             depotbewegung.securities_id,
             depotbewegung.kategorie_id,
-            depotbewegung.type_id,
+            depotbewegung.type,
             _num(depotbewegung.betrag),
             _num(depotbewegung.anteile),
             _dt(depotbewegung.datum)
@@ -563,10 +563,10 @@ class DBHandler:
         --------
         List[Tuple[int, int, int, int, int, int float, float, str]]
             Liste mit Tupeln (user_id, konto_id, securities_id, kategorie_id,
-                    type_id, betrag, anteile, datum) des depotbewegung
+                    type, betrag, anteile, datum) des depotbewegung
         """
         self.cursor.execute("SELECT id, user_id, konto_id, securities_id,\
-                             kategorie_id, type_id, betrag, anteile,\
+                             kategorie_id, type, betrag, anteile,\
                             datum FROM depotbewegung")
         depotbewegung = self.cursor.fetchall()
         return depotbewegung

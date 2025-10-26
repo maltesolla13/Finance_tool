@@ -7,13 +7,13 @@ from backend.app.services.depot.jobs import (
 register(JobDef(
     name="depot.depotstand.run",
     fn=run_depotstand,
-    cron="30 23 * * *",
+    cron="30 23 * * *",   # miute Stude Tag Woche Jahr
     description="Täglicher Depotstand"
 ))
 
 register(JobDef(
     name="depot.monthly_securities.run",
     fn=run_monthly_securities,
-    cron="0 8 1 * *",
+    cron="30 23 * * *",
     description="Monatliche Wertpapier-Käufe aus MonthlyCosts"
 ))

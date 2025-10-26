@@ -753,10 +753,14 @@ class BackendRoutes:
                 return [
                     SchemaDepotbewegung(
                         id=r["id"],
-                        name=r["name"],
-                        isin=r["isin"],
-                        ticker=r["ticker"],
-                        instrument=r["instrument"],
+                        user_id=r["user_id"],
+                        konto_id=r["konto_id"],
+                        securities_id=r["securities_id"],
+                        kategorie_id=r["kategorie_id"],
+                        type=r["type"],
+                        betrag=r["betrag"],
+                        anteile=r["anteile"],
+                        datum=r["datum"]
                     )
                     for r in rows
                 ]
@@ -805,10 +809,14 @@ class BackendRoutes:
                 return [
                     SchemaDepotstand(
                         id=r["id"],
-                        name=r["name"],
-                        isin=r["isin"],
-                        ticker=r["ticker"],
-                        instrument=r["instrument"],
+                        user_id=r["user_id"],
+                        konto_id=r["konto_id"],
+                        securities_id=r["securities_id"],
+                        summe_betrag=r["summe_betrag"],
+                        summe_anteil=r["summe_anteil"],
+                        wert=r["wert"],
+                        entwicklung=r["entwicklung"],
+                        datum=r["datum"]
                     )
                     for r in rows
                 ]

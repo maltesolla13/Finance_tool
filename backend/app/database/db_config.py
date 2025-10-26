@@ -89,12 +89,11 @@ def init_db():
         betrag REAL NOT NULL,
         kategorie_id INTEGER,
         konto_id INTEGER,
-        type_id INTEGER,
+        type TEXT NOT NULL,
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
-        FOREIGN KEY (konto_id) REFERENCES konten(id),
-        FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
+        FOREIGN KEY (konto_id) REFERENCES konten(id)
     )
     """)
 
@@ -119,15 +118,14 @@ def init_db():
         konto_id INTEGER NOT NULL,
         securities_id INTEGER NOT NULL,
         kategorie_id INTEGER,
-        type_id INTEGER,
+        type TEXT NOT NULL,
         betrag REAL NOT NULL,
         anteile REAL NOT NULL,
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
         FOREIGN KEY (securities_id) REFERENCES securities(id),
-        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
-        FOREIGN KEY (type_id) REFERENCES ausgabentypen(id)
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id)
     )
     """)
 
