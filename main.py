@@ -6,16 +6,20 @@ from backend.app.services.apis.backend_api import BackendRoutes
 from backend.app.services.scheduler import install_jobs
 
 # Starten:
+# .\venv\Scripts\Activate.ps1
 # python -m uvicorn main:app --reload
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Guard gegen Doppelstart (z. B. durch uvicorn --reload)
+    if not getattr(app.state, "scheduler_installed", False):
+        install_jobs(app)
+        app.state.scheduler_installed = True
     yield
 
 app = FastAPI(title="Finance Tool API", lifespan=lifespan)
-install_jobs(app)
 
 # CORS – passe Origins an dein Frontend an (Vite: 5173)
 origins = [
