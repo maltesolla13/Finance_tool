@@ -61,3 +61,26 @@ export function toPayloadSavings({
     sparrate_p: num(sparrate_p),
   };
 }
+
+export const toPayloadDepotbewegung = ({
+  userId,
+  kontoId,
+  securityId,
+  kategorieId,
+  typ,
+  betrag,
+  anteile,
+  datum,
+}) => {
+  const num = (x) => (x === "" || x == null ? null : Number(x));
+  return {
+    user_id: userId,
+    konto_id: kontoId,
+    securities_id: securityId,
+    kategorie_id: kategorieId,
+    type: typ,
+    betrag: num(betrag),
+    anteile: num(anteile),
+    datum: DateUtils.toISODate(datum),
+  };
+};

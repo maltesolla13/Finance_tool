@@ -136,4 +136,12 @@ export class ApiRequests {
   deleteDepotStand(id) {
     return this.api.delete(`/depotstand/${id}`);
   }
+
+  //Market API
+  marketLow({ ticker, date }) {
+    return this.api.get("/market/low", { ticker, date });
+  }
+  marketHigh({ ticker, date }) {
+    return this.api.get("/market/high", { ticker, date });
+  }
 }
