@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   TextField,
@@ -146,9 +146,10 @@ const BuySellSecurities = () => {
   );
 
   // Preis und Anteil Berechnung
+  const [lastEdited, setLastEdited] = useState(null); // "betrag" | "anteile"
   const [pricePerShare, setPricePerShare] = useState(null);
   const [priceSource, setPriceSource] = useState("auto"); // "auto" | "low" | "high"
-  const [lastEdited, setLastEdited] = useState(null); // "betrag" | "anteile"
+  const reqIdRef = useRef(0); // Race-Condition Schutz
 
   // Hole den ausgewählten Security-Option-Eintrag (mit ticker)
   const selectedSec = useMemo(
