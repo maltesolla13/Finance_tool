@@ -109,7 +109,7 @@ const BaseAutocomplete = ({
     <Autocomplete
       options={options}
       value={byId(options, valueId)}
-      inputValue={inputValue ?? ""}
+      inputValue={inputValue}
       onInputChange={(_, v) => onInputChange?.(v)}
       onChange={onChange ?? ((_, v) => onSelectId?.(v?.id ?? v?.value ?? null))}
       getOptionLabel={getOptionLabel}
