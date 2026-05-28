@@ -108,10 +108,10 @@ def run_monthlycosts_for_date(run_date: date):
         rows = db.load_monthlycosts()
         # [(id, user_id, name, betrag, anteil, securities_id, kategorie_id,
         # ausgangs_konto_id, eingangs_konto_id, start_datum, next_due,
-        # active)]: contentReference[oaicite:3]{index=3}
+        # repeat_type, custom_interval, custom_unit, active)]
         for (mc_id, user_id, name, betrag, anteil, securities_id, kategorie_id,
              ausgangs_konto_id, eingangs_konto_id, start_datum,
-             next_due, active) in rows:
+             next_due, repeat_type, custom_interval, custom_unit, active) in rows:
 
             if not active:
                 continue
@@ -186,6 +186,9 @@ def run_monthlycosts_for_date(run_date: date):
                     eingangs_konto_id=eingangs_konto_id,
                     start_datum=start_datum,
                     next_due=datetime.combine(new_due, datetime.min.time()),
+                    repeat_type=repeat_type,
+                    custom_interval=custom_interval,
+                    custom_unit=custom_unit,
                     active=active,
                 )
             )  # nutzt dein UPDATE. :contentReference[oaicite:4]{index=4}

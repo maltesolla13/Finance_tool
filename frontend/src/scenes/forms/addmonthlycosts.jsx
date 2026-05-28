@@ -19,7 +19,12 @@ import {
   Popover,
   List,
   ListItem,
-  ListItemText,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -50,10 +55,24 @@ import {
   formatInfoSecondary,
 } from "./Services/calendar.klick";
 import {
-  buildEditHandlers,
   saveEditItem,
   openEditById,
 } from "./Services/calendar.edit";
+
+const REPEAT_OPTIONS = [
+  { value: "WEEKLY", label: "Wöchentlich" },
+  { value: "MONTHLY", label: "Monatlich" },
+  { value: "QUARTERLY", label: "Quartalsweise" },
+  { value: "YEARLY", label: "Jährlich" },
+  { value: "CUSTOM", label: "Benutzerdefiniert" },
+];
+
+const CUSTOM_UNIT_OPTIONS = [
+  { value: "DAYS", label: "Tage" },
+  { value: "WEEKS", label: "Wochen" },
+  { value: "MONTHS", label: "Monate" },
+  { value: "YEARS", label: "Jahre" },
+];
 
 export default function AddMonthlyCosts() {
   const theme = useTheme();
@@ -73,6 +92,9 @@ export default function AddMonthlyCosts() {
     new Date().toISOString().slice(0, 10)
   );
   const [nextDue, setNextDue] = useState("");
+  const [repeatType, setRepeatType] = useState("MONTHLY");
+  const [customInterval, setCustomInterval] = useState("");
+  const [customUnit, setCustomUnit] = useState("MONTHS");
 
   // Konte
   const [kontoOutId, setKontoOutId] = useState(null);
@@ -158,7 +180,7 @@ export default function AddMonthlyCosts() {
   // next_due automatisch vorbefüllen
   useEffect(() => {
     if (!nextDue) setNextDue(startDatum);
-  }, [startDatum]);
+  }, [nextDue, startDatum]);
 
   // === MonthlyCosts Liste + Kalender ===
   const [editErrors, setEditErrors] = useState({});
@@ -263,6 +285,8 @@ export default function AddMonthlyCosts() {
       startDatum,
       kontoOutId,
       kontoInId,
+      repeatType,
+      customInterval,
     });
     if (errMsg) {
       setErr(errMsg);
@@ -282,6 +306,9 @@ export default function AddMonthlyCosts() {
         betrag,
         securityId,
         anteil,
+        repeatType,
+        customInterval,
+        customUnit,
       });
       console.log("POST /monthlycosts payload", payload);
       await api.createMonthlyCosts(payload);
@@ -292,6 +319,9 @@ export default function AddMonthlyCosts() {
       setKontoOutId(null);
       setKontoInId(null);
       setNextDue("");
+      setRepeatType("MONTHLY");
+      setCustomInterval("");
+      setCustomUnit("MONTHS");
       loadMonthlyCosts();
     } catch (e2) {
       console.error(e2);
@@ -451,6 +481,50 @@ export default function AddMonthlyCosts() {
                     sx={{ flex: 1 }}
                   />
                 </Stack>
+
+                <FormControl fullWidth>
+                  <InputLabel id="repeat-type-label">Wiederholung</InputLabel>
+                  <Select
+                    labelId="repeat-type-label"
+                    label="Wiederholung"
+                    value={repeatType}
+                    onChange={(e) => setRepeatType(e.target.value)}
+                  >
+                    {REPEAT_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {repeatType === "CUSTOM" && (
+                  <Stack spacing={1.5}>
+                    <TextField
+                      label="Anzahl"
+                      type="number"
+                      value={customInterval}
+                      onChange={(e) => setCustomInterval(e.target.value)}
+                      inputProps={{ min: 1, step: 1 }}
+                      required
+                    />
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={customUnit}
+                      onChange={(_, value) => {
+                        if (value) setCustomUnit(value);
+                      }}
+                      color="primary"
+                    >
+                      {CUSTOM_UNIT_OPTIONS.map((option) => (
+                        <ToggleButton key={option.value} value={option.value}>
+                          {option.label}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Stack>
+                )}
 
                 <FormControlLabel
                   control={
@@ -666,6 +740,66 @@ export default function AddMonthlyCosts() {
                 }
                 InputLabelProps={{ shrink: true }}
               />
+              <FormControl fullWidth>
+                <InputLabel id="edit-repeat-type-label">
+                  Wiederholung
+                </InputLabel>
+                <Select
+                  labelId="edit-repeat-type-label"
+                  label="Wiederholung"
+                  value={editItem.repeat_type || "MONTHLY"}
+                  onChange={(e) =>
+                    setEditItem((p) => ({
+                      ...p,
+                      repeat_type: e.target.value,
+                    }))
+                  }
+                >
+                  {REPEAT_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {(editItem.repeat_type || "MONTHLY") === "CUSTOM" && (
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Anzahl"
+                    type="number"
+                    value={editItem.custom_interval ?? ""}
+                    onChange={(e) =>
+                      setEditItem((p) => ({
+                        ...p,
+                        custom_interval: e.target.value,
+                      }))
+                    }
+                    inputProps={{ min: 1, step: 1 }}
+                    error={Boolean(editErrors.custom_interval)}
+                    helperText={editErrors.custom_interval}
+                    required
+                  />
+                  <ToggleButtonGroup
+                    exclusive
+                    fullWidth
+                    value={editItem.custom_unit || "MONTHS"}
+                    onChange={(_, value) => {
+                      if (value) {
+                        setEditItem((p) => ({ ...p, custom_unit: value }));
+                      }
+                    }}
+                    color="primary"
+                  >
+                    {CUSTOM_UNIT_OPTIONS.map((option) => (
+                      <ToggleButton key={option.value} value={option.value}>
+                        {option.label}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </Stack>
+              )}
+
               <FormControlLabel
                 control={
                   <Checkbox

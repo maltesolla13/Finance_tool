@@ -23,6 +23,9 @@ export const toPayloadMonthlyCost = ({
   betrag,
   securityId,
   anteil,
+  repeatType,
+  customInterval,
+  customUnit,
 }) => ({
   user_id: userId,
   name: String(name || "").trim(),
@@ -34,6 +37,10 @@ export const toPayloadMonthlyCost = ({
   securities_id: securityId ?? null,
   start_datum: DateUtils.isoDateTime(startDatum),
   next_due: DateUtils.isoDateTime(nextDue || startDatum),
+  repeat_type: repeatType || "MONTHLY",
+  custom_interval:
+    repeatType === "CUSTOM" ? NumberUtils.toNumberOrNull(customInterval) : null,
+  custom_unit: repeatType === "CUSTOM" ? customUnit || "MONTHS" : null,
   active: !!active,
 });
 

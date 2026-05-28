@@ -19,6 +19,8 @@ export const validateMonthlyCost = ({
   anteil,
   securityId,
   startDatum,
+  repeatType,
+  customInterval,
 }) => {
   if (!userId) return "Bitte User wählen.";
   if (!name?.trim()) return "Bezeichnung fehlt.";
@@ -26,6 +28,12 @@ export const validateMonthlyCost = ({
   if (!kontoOutId && !kontoInId)
     return "Mindestens ein Konto (Ausgang oder Eingang) wählen.";
   if (!startDatum) return "Start-Datum setzen.";
+  if (repeatType === "CUSTOM") {
+    const interval = NumberUtils.toNumberOrNull(customInterval);
+    if (!Number.isInteger(interval) || interval <= 0) {
+      return "Bei benutzerdefinierter Wiederholung eine ganze Anzahl größer 0 eingeben.";
+    }
+  }
 
   const amount = NumberUtils.toNumberOrNull(betrag);
   const shares = NumberUtils.toNumberOrNull(anteil);

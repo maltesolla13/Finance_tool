@@ -1,6 +1,3 @@
-// forms/Services/calendar.edit.js
-import * as DateUtils from "./date.utils";
-
 export function openEditById(
   rawId,
   { monthlyCosts, setEditItem, setEditOpen }
@@ -43,6 +40,13 @@ function validateEditItem(editItem) {
   ) {
     errs.start_datum_ui = "Ungültiges Datum (Format: YYYY-MM-DD).";
   }
+  if ((editItem?.repeat_type || "MONTHLY") === "CUSTOM") {
+    const interval = Number(editItem?.custom_interval);
+    if (!Number.isInteger(interval) || interval <= 0) {
+      errs.custom_interval =
+        "Bei benutzerdefinierter Wiederholung eine ganze Anzahl größer 0 eingeben.";
+    }
+  }
   return errs;
 }
 
@@ -62,7 +66,7 @@ export async function saveEditItem(
   const errs = validateEditItem(editItem);
   if (Object.keys(errs).length) {
     setEditErrors?.(errs);
-    setErr?.("Bitte das Start-Datum korrigieren.");
+    setErr?.("Bitte die markierten Felder korrigieren.");
     return;
   }
   setEditErrors?.({});
@@ -82,6 +86,15 @@ export async function saveEditItem(
       securities_id: editItem.securities_id ?? null,
       anteil: editItem.anteil ?? null,
       betrag: editItem.betrag ?? null,
+      repeat_type: editItem.repeat_type || "MONTHLY",
+      custom_interval:
+        (editItem.repeat_type || "MONTHLY") === "CUSTOM"
+          ? Number(editItem.custom_interval)
+          : null,
+      custom_unit:
+        (editItem.repeat_type || "MONTHLY") === "CUSTOM"
+          ? editItem.custom_unit || "MONTHS"
+          : null,
     };
 
     const updated = await api.updateMonthlyCosts(editItem.id, payload);
