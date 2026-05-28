@@ -18,7 +18,6 @@ def install_jobs(app):
         try:
             if job.cron:
                 trigger = CronTrigger.from_crontab(job.cron, timezone=tz)
-                # fn erwartet optionalen date-String -> Wrapper
                 scheduler.add_job(
                     lambda j=job: j.fn(None),
                     trigger,

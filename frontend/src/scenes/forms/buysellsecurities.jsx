@@ -279,7 +279,6 @@ const BuySellSecurities = () => {
       anteile,
       datum,
     });
-    await api.createDepotBewegung(payload);
 
     try {
       setSubmitting(true);

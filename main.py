@@ -6,8 +6,12 @@ from backend.app.services.apis.backend_api import BackendRoutes
 from backend.app.services.scheduler import install_jobs
 
 # Starten:
+# --- Backend ---
 # .\venv\Scripts\Activate.ps1
 # python -m uvicorn main:app --reload
+# --- Frontend ---
+# cd frontend
+# npm start
 
 
 @asynccontextmanager
