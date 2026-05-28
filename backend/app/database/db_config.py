@@ -170,7 +170,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS monthlycosts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
+        user_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         betrag REAL, -- optional
         anteil REAL, -- optional
@@ -179,13 +179,55 @@ def init_db():
         ausgangs_konto_id INTEGER,
         eingangs_konto_id INTEGER,
         start_datum TEXT NOT NULL,
-        next_due TEXT NOT NULL,
-        active INTEGER NOT NULL CHECK (active IN (0,1)),
+        next_due TEXT,
+        repeat_type TEXT NOT NULL DEFAULT 'MONTHLY',
+        custom_interval INTEGER,
+        custom_unit TEXT,
+        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (securities_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
         FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
-        FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id)
+        FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id),
+
+        CHECK (repeat_type IN (
+                   'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM')),
+        CHECK (custom_unit IS NULL OR custom_unit IN (
+                   'DAYS', 'WEEKS', 'MONTHS', 'YEARS')),
+        CHECK (custom_interval IS NULL OR custom_interval > 0),
+        CHECK (
+            repeat_type != 'CUSTOM'
+            OR (
+                custom_interval IS NOT NULL
+                AND custom_interval > 0
+                AND custom_unit IS NOT NULL
+            )
+        )
+    )
+    """)
+
+    # MonthlyCostsExecution
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS monthlycosts_execution (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        monthlycost_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        betrag REAL, -- optional
+        anteil REAL, -- optional
+        securities_id INTEGER,
+        kategorie_id INTEGER,
+        ausgangs_konto_id INTEGER,
+        eingangs_konto_id INTEGER,
+        execution_datum TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        FOREIGN KEY (monthlycost_id) REFERENCES monthlycosts(id),
+        FOREIGN KEY (user_id) REFERENCES user(id),
+        FOREIGN KEY (securities_id) REFERENCES securities(id),
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
+        FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
+        FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id),
+        CHECK (status IN ('PENDING', 'EXECUTED', 'FAILED', 'SKIPPED'))
     )
     """)
 
