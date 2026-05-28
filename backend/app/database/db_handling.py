@@ -3,7 +3,7 @@ from backend.app.models.schema import SchemaReceipt, SchemaMonthlyCosts, \
     SchemaSecurities, SchemaAktienKurs, SchemaAusgabentyp, \
     SchemaDepotbewegung, SchemaDepotstand, SchemaKategorie, SchemaKonto, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
-    SchemaUser
+    SchemaUser, SchemaMonthlyCostsExecution
 from decimal import Decimal
 from datetime import datetime
 
@@ -13,7 +13,7 @@ def _num(x):
 
 
 def _dt(x):
-    return x.isoformat() if isinstance(x, datetime) else x
+    return x.isoformat() if hasattr(x, "isoformat") else x
 
 
 class DBHandler:
@@ -638,7 +638,8 @@ class DBHandler:
         monthlycosts: Ein Objekt mit Attribut
             'user_id', 'name', 'betrag', 'anteil', 'securities_id',
             'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
-            'start_datum', 'next_due', 'active'
+            'start_datum', 'next_due', 'repeat_type', 'custom_interval',
+            'custom_unit', 'active'
 
         Response
         --------
@@ -647,8 +648,9 @@ class DBHandler:
         self.cursor.execute("""
             INSERT INTO monthlycosts (user_id, name, betrag, anteil,
                             securities_id, kategorie_id, ausgangs_konto_id,
-                            eingangs_konto_id,start_datum, next_due, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            eingangs_konto_id, start_datum, next_due,
+                            repeat_type, custom_interval, custom_unit, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             monthlycosts.user_id,
             monthlycosts.name,
@@ -660,6 +662,9 @@ class DBHandler:
             monthlycosts.eingangs_konto_id,
             _dt(monthlycosts.start_datum),
             _dt(monthlycosts.next_due),
+            monthlycosts.repeat_type,
+            monthlycosts.custom_interval,
+            monthlycosts.custom_unit,
             monthlycosts.active
         ))
 
@@ -677,11 +682,13 @@ class DBHandler:
         List[Tuple[int, int, int, int, float, float, float, float, str]]
             Liste mit Tupeln (id, user_id, name, betrag, anteil, securities_id,
             kategorie_id, ausgangs_konto_id, eingangs_konto_id, start_datum,
-            next_due, active) des monthlycosts
+            next_due, repeat_type, custom_interval, custom_unit, active)
+            des monthlycosts
         """
         self.cursor.execute("SELECT id, user_id, name, betrag, anteil,\
                             securities_id, kategorie_id, ausgangs_konto_id,\
-                            eingangs_konto_id, start_datum, next_due, active\
+                            eingangs_konto_id, start_datum, next_due,\
+                            repeat_type, custom_interval, custom_unit, active\
                             FROM monthlycosts")
         monthlycosts = self.cursor.fetchall()
         return monthlycosts
@@ -696,7 +703,8 @@ class DBHandler:
         monthlycosts: Ein Objekt mit Attributen
             'id', 'user_id', 'name', 'betrag', 'anteil', 'securities_id',
             'kategorie_id', 'ausgangs_konto_id', 'eingangs_konto_id',
-            'start_datum', 'next_due', 'active'
+            'start_datum', 'next_due', 'repeat_type', 'custom_interval',
+            'custom_unit', 'active'
 
         Response
         --------
@@ -714,6 +722,9 @@ class DBHandler:
                 eingangs_konto_id = ?,
                 start_datum = ?,
                 next_due = ?,
+                repeat_type = ?,
+                custom_interval = ?,
+                custom_unit = ?,
                 active = ?
             WHERE id = ?
         """, (
@@ -727,8 +738,78 @@ class DBHandler:
             monthlycosts.eingangs_konto_id,
             _dt(monthlycosts.start_datum),
             _dt(monthlycosts.next_due),
+            monthlycosts.repeat_type,
+            monthlycosts.custom_interval,
+            monthlycosts.custom_unit,
             monthlycosts.active,
             monthlycosts.id
+        ))
+
+    def insert_monthlycosts_execution(
+            self,
+            execution: SchemaMonthlyCostsExecution
+    ) -> SchemaMonthlyCostsExecution:
+        self.cursor.execute("""
+            INSERT INTO monthlycosts_execution (
+                monthlycost_id, user_id, name, betrag, anteil, securities_id,
+                kategorie_id, ausgangs_konto_id, eingangs_konto_id,
+                execution_datum, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            execution.monthlycost_id,
+            execution.user_id,
+            execution.name,
+            _num(execution.betrag),
+            _num(execution.anteil),
+            execution.securities_id,
+            execution.kategorie_id,
+            execution.ausgangs_konto_id,
+            execution.eingangs_konto_id,
+            _dt(execution.execution_datum),
+            execution.status,
+        ))
+
+    def load_monthlycosts_execution(
+            self) -> list[SchemaMonthlyCostsExecution]:
+        self.cursor.execute("""
+            SELECT id, monthlycost_id, user_id, name, betrag, anteil,
+                   securities_id, kategorie_id, ausgangs_konto_id,
+                   eingangs_konto_id, execution_datum, status
+            FROM monthlycosts_execution
+        """)
+        return self.cursor.fetchall()
+
+    def update_monthlycosts_execution(
+            self,
+            execution: SchemaMonthlyCostsExecution
+    ) -> None:
+        self.cursor.execute("""
+            UPDATE monthlycosts_execution
+            SET monthlycost_id = ?,
+                user_id = ?,
+                name = ?,
+                betrag = ?,
+                anteil = ?,
+                securities_id = ?,
+                kategorie_id = ?,
+                ausgangs_konto_id = ?,
+                eingangs_konto_id = ?,
+                execution_datum = ?,
+                status = ?
+            WHERE id = ?
+        """, (
+            execution.monthlycost_id,
+            execution.user_id,
+            execution.name,
+            _num(execution.betrag),
+            _num(execution.anteil),
+            execution.securities_id,
+            execution.kategorie_id,
+            execution.ausgangs_konto_id,
+            execution.eingangs_konto_id,
+            _dt(execution.execution_datum),
+            execution.status,
+            execution.id,
         ))
 
     def insert_savings(

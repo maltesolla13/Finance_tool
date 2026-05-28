@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -13,7 +13,7 @@ from backend.app.services.apis.market_api import (
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
     SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel, \
-    SchemaDepotbewegung, SchemaDepotstand
+    SchemaDepotbewegung, SchemaDepotstand, SchemaMonthlyCostsExecution
 
 TZ = ZoneInfo("Europe/Berlin")
 
@@ -98,7 +98,7 @@ class BackendRoutes:
 
     # ---- Helpers für optionales Update (Merge-Strategie) -----------
     def _dt(self, x):
-        return x.isoformat() if isinstance(x, datetime) else x
+        return x.isoformat() if isinstance(x, (date, datetime)) else x
 
     def _payload_changes(
             self, payload_obj: object,
@@ -156,7 +156,7 @@ class BackendRoutes:
         out = dict(d)
         # ints
         for k in ("user_id", "kategorie_id", "ausgangs_konto_id",
-                  "eingangs_konto_id", "securities_id"):
+                  "eingangs_konto_id", "securities_id", "custom_interval"):
             if out.get(k) is not None:
                 out[k] = int(out[k])
         # Datum → ISO-String
@@ -169,6 +169,21 @@ class BackendRoutes:
             out["next_due"] = out.get("start_datum")
         # active → 0/1 (INTEGER)
         out["active"] = 1 if bool(out.get("active")) else 0
+        out["repeat_type"] = (out.get("repeat_type") or "MONTHLY").upper()
+        if out.get("custom_unit") is not None:
+            out["custom_unit"] = out["custom_unit"].upper()
+        return out
+
+    def _normalize_monthlycosts_execution(self, d: dict) -> dict:
+        out = dict(d)
+        for k in ("monthlycost_id", "user_id", "kategorie_id",
+                  "ausgangs_konto_id", "eingangs_konto_id",
+                  "securities_id"):
+            if out.get(k) is not None:
+                out[k] = int(out[k])
+        if out.get("execution_datum") is not None:
+            out["execution_datum"] = self._dt(out["execution_datum"])
+        out["status"] = (out.get("status") or "PENDING").upper()
         return out
 
     def _normalize_receipt(self, d: dict) -> dict:
@@ -469,6 +484,9 @@ class BackendRoutes:
                         next_due=(r["next_due"][:10]
                                   if r["next_due"]
                                   else None),
+                        repeat_type=r["repeat_type"],
+                        custom_interval=r["custom_interval"],
+                        custom_unit=r["custom_unit"],
                         active=bool(r["active"]),
                     )
                     for r in rows
@@ -494,6 +512,14 @@ class BackendRoutes:
                 p.active = 1 if bool(p.active) else 0
                 if not p.next_due:
                     p.next_due = p.start_datum  # fallback
+                p.repeat_type = (p.repeat_type or "MONTHLY").upper()
+                p.custom_interval = (
+                    int(p.custom_interval)
+                    if p.custom_interval is not None else None
+                )
+                p.custom_unit = (
+                    p.custom_unit.upper() if p.custom_unit else None
+                )
 
                 # FK-Checks
                 def exists(table, id_):
@@ -544,7 +570,8 @@ class BackendRoutes:
                 fields = [
                     "user_id", "name", "betrag", "anteil", "securities_id",
                     "kategorie_id", "ausgangs_konto_id", "eingangs_konto_id",
-                    "start_datum", "next_due", "active",
+                    "start_datum", "next_due", "repeat_type",
+                    "custom_interval", "custom_unit", "active",
                 ]
                 ns = self._merge_for_update(
                     db=db,
@@ -570,6 +597,113 @@ class BackendRoutes:
                     raise HTTPException(
                         status_code=404,
                         detail="MonthlyCosts nicht gefunden",
+                    )
+                db.conn.commit()
+            finally:
+                db.close()
+
+        # ---- MonthlyCostsExecution ----
+        def get_monthlycosts_execution() -> List[SchemaMonthlyCostsExecution]:
+            db = DBHandler()
+            try:
+                rows = db.load_monthlycosts_execution()
+                return [
+                    SchemaMonthlyCostsExecution(
+                        id=r["id"],
+                        monthlycost_id=r["monthlycost_id"],
+                        user_id=r["user_id"],
+                        name=r["name"],
+                        betrag=r["betrag"],
+                        anteil=r["anteil"],
+                        securities_id=r["securities_id"],
+                        kategorie_id=r["kategorie_id"],
+                        ausgangs_konto_id=r["ausgangs_konto_id"],
+                        eingangs_konto_id=r["eingangs_konto_id"],
+                        execution_datum=(r["execution_datum"][:10]
+                                         if r["execution_datum"]
+                                         else None),
+                        status=r["status"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_monthlycosts_execution(
+                payload: SchemaMonthlyCostsExecution) -> None:
+            db = DBHandler()
+            try:
+                data = self._normalize_monthlycosts_execution(
+                    dict(payload.__dict__)
+                )
+                p = SimpleNamespace(**data)
+
+                def exists(table, id_):
+                    if id_ is None:
+                        return True
+                    row = db.cursor.execute(
+                        f"SELECT 1 FROM {table} WHERE id=?", (id_,)).fetchone()
+                    return row is not None
+
+                if not exists("monthlycosts", p.monthlycost_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter monthlycost_id")
+                if not exists("user", p.user_id):
+                    raise HTTPException(400, detail="Unbekannter user_id")
+                if not exists("kategorien", p.kategorie_id):
+                    raise HTTPException(400, detail="Unbekannter kategorie_id")
+                if p.ausgangs_konto_id and not exists(
+                        "konten", p.ausgangs_konto_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter ausgangs_konto_id")
+                if p.eingangs_konto_id and not exists(
+                        "konten", p.eingangs_konto_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter eingangs_konto_id")
+                if p.securities_id and not exists(
+                        "securities", p.securities_id):
+                    raise HTTPException(
+                        400, detail="Unbekannter securities_id (Wertpapier)")
+
+                db.insert_monthlycosts_execution(p)
+                db.conn.commit()
+            finally:
+                db.close()
+
+        def update_monthlycosts_execution(
+                execution_id: int,
+                payload: SchemaMonthlyCostsExecution) -> None:
+            db = DBHandler()
+            try:
+                fields = [
+                    "monthlycost_id", "user_id", "name", "betrag", "anteil",
+                    "securities_id", "kategorie_id", "ausgangs_konto_id",
+                    "eingangs_konto_id", "execution_datum", "status",
+                ]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="monthlycosts_execution",
+                    id_col="id",
+                    item_id=execution_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_monthlycosts_execution,
+                )
+                db.update_monthlycosts_execution(ns)
+            finally:
+                db.close()
+
+        def delete_monthlycosts_execution(execution_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM monthlycosts_execution WHERE id = ?",
+                    (execution_id,),
+                )
+                if db.cursor.rowcount == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="MonthlyCostsExecution nicht gefunden",
                     )
                 db.conn.commit()
             finally:
@@ -874,6 +1008,11 @@ class BackendRoutes:
             ("monthlycosts", SchemaMonthlyCosts, SchemaMonthlyCosts,
              get_monthlycosts, create_monthlycosts, update_monthlycosts,
              delete_monthlycosts, "MonthlyCosts"),
+
+            ("monthlycosts_execution", SchemaMonthlyCostsExecution,
+             SchemaMonthlyCostsExecution, get_monthlycosts_execution,
+             create_monthlycosts_execution, update_monthlycosts_execution,
+             delete_monthlycosts_execution, "MonthlyCostsExecution"),
 
             ("receipt", SchemaReceipt, SchemaReceipt,
              get_receipt, create_receipt, update_receipt, delete_receipt,
