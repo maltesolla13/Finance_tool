@@ -22,6 +22,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
@@ -52,7 +54,8 @@ export default function AddSavings() {
   const [kategorieId, setKategorieId] = useState(null);
   const [betrag, setBetrag] = useState("");
   const [startDatum, setStartDatum] = useState(DateUtils.toISODate(new Date()));
-  const [endDatum, setEndDatum] = useState(DateUtils.toISODate(new Date()));
+  const [planMode, setPlanMode] = useState("end");
+  const [endDatum, setEndDatum] = useState("");
   const [sparrate_e, setSparrate_e] = useState("");
   const [sparrate_p, setSparrate_p] = useState("");
 
@@ -120,6 +123,7 @@ export default function AddSavings() {
 
   // ====== Savings laden ======
   const [savings, setSavings] = useState([]);
+  const [savingsExecutions, setSavingsExecutions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
@@ -138,6 +142,8 @@ export default function AddSavings() {
       }));
 
       setSavings(normalized);
+      const execRows = await api.listSavingsExecution();
+      setSavingsExecutions(Array.isArray(execRows) ? execRows : []);
     } catch (e) {
       console.warn(e);
       setErr("Konnte Sparziele nicht laden.");
@@ -158,6 +164,17 @@ export default function AddSavings() {
     });
   }, [savings]);
 
+  const executionTotalsBySavings = useReactMemo(() => {
+    return savingsExecutions.reduce((acc, row) => {
+      const key = row.savings_id;
+      const current = acc[key] || { count: 0, amount: 0 };
+      current.count += 1;
+      current.amount += Number(row.amount || 0);
+      acc[key] = current;
+      return acc;
+    }, {});
+  }, [savingsExecutions]);
+
   // ====== Formular Submit (Create) ======
   const onCreate = async (e) => {
     e.preventDefault();
@@ -171,9 +188,9 @@ export default function AddSavings() {
       kategorieId,
       betrag,
       startDatum,
-      endDatum,
-      sparrate_e,
-      sparrate_p,
+      endDatum: planMode === "end" ? endDatum : "",
+      sparrate_e: planMode === "amount" ? sparrate_e : "",
+      sparrate_p: planMode === "percent" ? sparrate_p : "",
     });
     if (errMsg) {
       setErr(errMsg);
@@ -188,15 +205,19 @@ export default function AddSavings() {
         kategorieId,
         betrag,
         startDatum,
-        endDatum,
-        sparrate_e,
-        sparrate_p,
+        endDatum: planMode === "end" ? endDatum : "",
+        sparrate_e: planMode === "amount" ? sparrate_e : "",
+        sparrate_p: planMode === "percent" ? sparrate_p : "",
       });
       await api.createSavings(payload);
       setOk("Savings angelegt.");
       // Einträge resetten
       setName("");
       setBetrag("");
+      setEndDatum("");
+      setSparrate_e("");
+      setSparrate_p("");
+      setPlanMode("end");
       setKategorieId(null);
       setKontoId(null);
       loadSavings();
@@ -303,7 +324,27 @@ export default function AddSavings() {
                   value={endDatum}
                   onChange={(e) => setEndDatum(e.target.value)}
                   InputLabelProps={{ shrink: true }}
+                  required={planMode === "end"}
+                  sx={{ display: planMode === "end" ? "flex" : "none" }}
                 />
+
+                <ToggleButtonGroup
+                  exclusive
+                  fullWidth
+                  color="primary"
+                  value={planMode}
+                  onChange={(_, value) => {
+                    if (!value) return;
+                    setPlanMode(value);
+                    setEndDatum("");
+                    setSparrate_e("");
+                    setSparrate_p("");
+                  }}
+                >
+                  <ToggleButton value="end">Enddatum</ToggleButton>
+                  <ToggleButton value="amount">EUR/Monat</ToggleButton>
+                  <ToggleButton value="percent">% Gehalt</ToggleButton>
+                </ToggleButtonGroup>
 
                 <TextField
                   label="Sparrate (€)"
@@ -311,6 +352,8 @@ export default function AddSavings() {
                   inputProps={{ step: "0.01" }}
                   value={sparrate_e}
                   onChange={(e) => setSparrate_e(e.target.value)}
+                  required={planMode === "amount"}
+                  sx={{ display: planMode === "amount" ? "flex" : "none" }}
                 />
 
                 <TextField
@@ -319,6 +362,8 @@ export default function AddSavings() {
                   inputProps={{ step: "0.01" }}
                   value={sparrate_p}
                   onChange={(e) => setSparrate_p(e.target.value)}
+                  required={planMode === "percent"}
+                  sx={{ display: planMode === "percent" ? "flex" : "none" }}
                 />
 
                 <Box>
@@ -353,6 +398,8 @@ export default function AddSavings() {
                   <TableRow>
                     <TableCell>Ziel Datum</TableCell>
                     <TableCell>Betrag (€)</TableCell>
+                    <TableCell>Rate</TableCell>
+                    <TableCell>Ausgefuehrt</TableCell>
                     <TableCell>Name</TableCell>
                   </TableRow>
                 </TableHead>
@@ -364,6 +411,18 @@ export default function AddSavings() {
                       </TableCell>
                       <TableCell>
                         {r.betrag != null ? Number(r.betrag).toFixed(2) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {r.sparrate_e != null
+                          ? `${Number(r.sparrate_e).toFixed(2)} EUR`
+                          : r.sparrate_p != null
+                            ? `${Number(r.sparrate_p).toFixed(2)}%`
+                            : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {executionTotalsBySavings[r.id]
+                          ? `${executionTotalsBySavings[r.id].count} / ${executionTotalsBySavings[r.id].amount.toFixed(2)} EUR`
+                          : "-"}
                       </TableCell>
                       <TableCell>{r.name}</TableCell>
                     </TableRow>

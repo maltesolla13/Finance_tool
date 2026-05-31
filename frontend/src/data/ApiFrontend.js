@@ -117,6 +117,9 @@ export class ApiRequests {
   deleteSavings(id) {
     return this.api.delete(`/savings/${id}`);
   }
+  listSavingsExecution() {
+    return this.api.get("/savings_execution");
+  }
 
   // Depot Bewegung
   listDepotbewegung(params = {}) {

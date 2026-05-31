@@ -119,6 +119,20 @@ class SchemaSparziel:
 
 
 @dataclass
+class SchemaSavingsExecution:
+    id: Optional[int] = None
+    savings_id: Optional[int] = None
+    user_id: Optional[int] = None
+    konto_id: Optional[int] = None
+    kategorie_id: Optional[int] = None
+    income_kontobewegung_id: Optional[int] = None
+    execution_month: Optional[str] = None
+    income_amount: Optional[Decimal] = None
+    amount: Optional[Decimal] = None
+    status: Optional[str] = None
+
+
+@dataclass
 class SchemaMonthlyCosts:
     user_id: Optional[int] = None
     name: Optional[str] = None

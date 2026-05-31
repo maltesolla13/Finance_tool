@@ -14,6 +14,7 @@ from backend.app.services.jobs.monthly_and_depot_posting import (
     _to_date,
     run_monthlycosts_for_date,
 )
+from backend.app.services.jobs.savings_execution import recalc_all_savings, recalc_savings
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import (
     fetch_high_on_or_after, fetch_low_on_or_after
@@ -21,7 +22,8 @@ from backend.app.services.apis.market_api import (
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
     SchemaOption, SchemaSecurities, SchemaLaden, SchemaSparziel, \
-    SchemaDepotbewegung, SchemaDepotstand, SchemaMonthlyCostsExecution
+    SchemaDepotbewegung, SchemaDepotstand, SchemaKontobewegung, \
+    SchemaMonthlyCostsExecution, SchemaSavingsExecution
 
 TZ = ZoneInfo("Europe/Berlin")
 
@@ -215,6 +217,14 @@ class BackendRoutes:
             out["end_datum"] = self._dt(out["end_datum"])
         return out
 
+    def _is_gehalt_category(self, db: DBHandler, kategorie_id: int | None):
+        if not kategorie_id:
+            return False
+        row = db.cursor.execute(
+            "SELECT name FROM kategorien WHERE id = ?", (kategorie_id,)
+        ).fetchone()
+        return bool(row and (row["name"] or "").strip().lower() == "gehalt")
+
     # ---- Request/Route-Definitionen -----------------------------------------
     def request_handling(self) -> None:
         opt_router = APIRouter(prefix="/options", tags=["Options"])
@@ -303,6 +313,11 @@ class BackendRoutes:
             run_date = _parse_date_qs(date)
             run_monthlycosts_for_date(run_date)
             return {"ok": True, "date": run_date.strftime("%Y-%m-%d")}
+
+        @jobs.post("/savings/recalculate")
+        def run_savings_recalculate():
+            recalc_all_savings()
+            return {"ok": True}
 
         @jobs.post("/depotstand/run")
         def run_depotstand(date: str | None = None):
@@ -806,6 +821,9 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 db.insert_receipt(payload)
+                db.conn.commit()
+                if self._is_gehalt_category(db, payload.kategorie_id):
+                    recalc_all_savings()
             finally:
                 db.close()
 
@@ -824,6 +842,9 @@ class BackendRoutes:
                     normalizer=self._normalize_receipt,
                 )
                 db.update_receipt(ns)
+                db.conn.commit()
+                if self._is_gehalt_category(db, ns.kategorie_id):
+                    recalc_all_savings()
             finally:
                 db.close()
 
@@ -836,6 +857,80 @@ class BackendRoutes:
                     raise HTTPException(
                         status_code=404, detail="receipt nicht gefunden")
                 db.conn.commit()
+                recalc_all_savings()
+            finally:
+                db.close()
+
+        # ---- Kontobewegung ----
+        def get_kontobewegung() -> List[SchemaKontobewegung]:
+            db = DBHandler()
+            try:
+                rows = db.load_kontobewegung()
+                return [
+                    SchemaKontobewegung(
+                        id=r["id"],
+                        user_id=r["user_id"],
+                        name=r["name"],
+                        betrag=r["betrag"],
+                        kategorie_id=r["kategorie_id"],
+                        konto_id=r["konto_id"],
+                        type=r["type"],
+                        datum=r["datum"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_kontobewegung(payload: SchemaKontobewegung) -> None:
+            db = DBHandler()
+            try:
+                db.insert_kontobewegung(payload)
+                db.conn.commit()
+                if self._is_gehalt_category(db, payload.kategorie_id):
+                    recalc_all_savings()
+            finally:
+                db.close()
+
+        def update_kontobewegung(
+                kontobewegung_id: int,
+                payload: SchemaKontobewegung) -> None:
+            db = DBHandler()
+            try:
+                fields = ["user_id", "name", "betrag", "kategorie_id",
+                          "konto_id", "type", "datum"]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="kontobewegung",
+                    id_col="id",
+                    item_id=kontobewegung_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_receipt,
+                )
+                db.cursor.execute("""
+                    UPDATE kontobewegung
+                    SET user_id = ?, name = ?, betrag = ?, kategorie_id = ?,
+                        konto_id = ?, type = ?, datum = ?
+                    WHERE id = ?
+                """, (
+                    ns.user_id, ns.name, ns.betrag, ns.kategorie_id,
+                    ns.konto_id, ns.type, ns.datum, kontobewegung_id,
+                ))
+                db.conn.commit()
+                recalc_all_savings()
+            finally:
+                db.close()
+
+        def delete_kontobewegung(kontobewegung_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM kontobewegung WHERE id = ?",
+                    (kontobewegung_id,),
+                )
+                db.conn.commit()
+                recalc_all_savings()
             finally:
                 db.close()
 
@@ -917,8 +1012,11 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 db.insert_savings(payload)
+                new_id = db.cursor.lastrowid
+                db.conn.commit()
             finally:
                 db.close()
+            recalc_savings(new_id)
 
         def update_savings(savings_id: int, payload: SchemaSparziel) -> None:
             db = DBHandler()
@@ -936,8 +1034,10 @@ class BackendRoutes:
                     normalizer=self._normalize_savings,
                 )
                 db.update_savings(ns)
+                db.conn.commit()
             finally:
                 db.close()
+            recalc_savings(savings_id)
 
         def delete_savings(savings_id: int) -> None:
             db = DBHandler()
@@ -947,6 +1047,62 @@ class BackendRoutes:
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
                         status_code=404, detail="savings nicht gefunden")
+                db.cursor.execute(
+                    "DELETE FROM savings_execution WHERE savings_id = ?",
+                    (savings_id,),
+                )
+                db.conn.commit()
+            finally:
+                db.close()
+
+        def get_savings_execution() -> List[SchemaSavingsExecution]:
+            db = DBHandler()
+            try:
+                rows = db.cursor.execute("""
+                    SELECT id, savings_id, user_id, konto_id, kategorie_id,
+                           income_kontobewegung_id, execution_month,
+                           income_amount, amount, status
+                    FROM savings_execution
+                    ORDER BY execution_month, id
+                """).fetchall()
+                return [
+                    SchemaSavingsExecution(
+                        id=r["id"],
+                        savings_id=r["savings_id"],
+                        user_id=r["user_id"],
+                        konto_id=r["konto_id"],
+                        kategorie_id=r["kategorie_id"],
+                        income_kontobewegung_id=r["income_kontobewegung_id"],
+                        execution_month=r["execution_month"],
+                        income_amount=r["income_amount"],
+                        amount=r["amount"],
+                        status=r["status"],
+                    )
+                    for r in rows
+                ]
+            finally:
+                db.close()
+
+        def create_savings_execution(
+                _payload: SchemaSavingsExecution) -> None:
+            raise HTTPException(
+                status_code=405,
+                detail="SavingsExecution wird automatisch berechnet")
+
+        def update_savings_execution(
+                _execution_id: int,
+                _payload: SchemaSavingsExecution) -> None:
+            raise HTTPException(
+                status_code=405,
+                detail="SavingsExecution wird automatisch berechnet")
+
+        def delete_savings_execution(execution_id: int) -> None:
+            db = DBHandler()
+            try:
+                db.cursor.execute(
+                    "DELETE FROM savings_execution WHERE id = ?",
+                    (execution_id,),
+                )
                 db.conn.commit()
             finally:
                 db.close()
@@ -1090,6 +1246,10 @@ class BackendRoutes:
              get_receipt, create_receipt, update_receipt, delete_receipt,
              "Receipt"),
 
+            ("kontobewegung", SchemaKontobewegung, SchemaKontobewegung,
+             get_kontobewegung, create_kontobewegung, update_kontobewegung,
+             delete_kontobewegung, "Kontobewegung"),
+
             ("securities", SchemaSecurities, SchemaSecurities,
              get_securities, create_securities, update_securities,
              delete_securities, "Securities"),
@@ -1097,6 +1257,11 @@ class BackendRoutes:
             ("savings", SchemaSparziel, SchemaSparziel,
              get_savings, create_savings, update_savings,
              delete_savings, "Savings"),
+
+            ("savings_execution", SchemaSavingsExecution,
+             SchemaSavingsExecution, get_savings_execution,
+             create_savings_execution, update_savings_execution,
+             delete_savings_execution, "SavingsExecution"),
 
             ("depotbewegung", SchemaDepotbewegung, SchemaDepotbewegung,
              get_depotbewegung, create_depotbewegung, update_depotbewegung,

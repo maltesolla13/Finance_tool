@@ -166,6 +166,60 @@ def init_db():
     )
     """)
 
+    savings_cols = {
+        row[1]: row for row in cursor.execute("PRAGMA table_info(savings)")
+    }
+    if savings_cols.get("end_datum") and savings_cols["end_datum"][3]:
+        cursor.execute("ALTER TABLE savings RENAME TO savings_old")
+        cursor.execute("""
+        CREATE TABLE savings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            user_id INTEGER,
+            konto_id INTEGER,
+            kategorie_id INTEGER,
+            betrag REAL,
+            start_datum TEXT NOT NULL,
+            end_datum TEXT,
+            sparrate_e REAL,
+            sparrate_p REAL,
+            FOREIGN KEY (user_id) REFERENCES user(id),
+            FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
+            FOREIGN KEY (konto_id) REFERENCES konten(id)
+        )
+        """)
+        cursor.execute("""
+        INSERT INTO savings (
+            id, name, user_id, konto_id, kategorie_id, betrag, start_datum,
+            end_datum, sparrate_e, sparrate_p)
+        SELECT id, name, user_id, konto_id, kategorie_id, betrag, start_datum,
+               end_datum, sparrate_e, sparrate_p
+        FROM savings_old
+        """)
+        cursor.execute("DROP TABLE savings_old")
+
+    # SavingsExecution
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS savings_execution (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        savings_id INTEGER NOT NULL,
+        user_id INTEGER,
+        konto_id INTEGER,
+        kategorie_id INTEGER,
+        income_kontobewegung_id INTEGER,
+        execution_month TEXT NOT NULL,
+        income_amount REAL,
+        amount REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'EXECUTED',
+        FOREIGN KEY (savings_id) REFERENCES savings(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES user(id),
+        FOREIGN KEY (konto_id) REFERENCES konten(id),
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id),
+        FOREIGN KEY (income_kontobewegung_id) REFERENCES kontobewegung(id),
+        CHECK (status IN ('EXECUTED', 'SKIPPED'))
+    )
+    """)
+
     # MonthlyCosts
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS monthlycosts (

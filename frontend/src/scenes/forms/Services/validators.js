@@ -2,9 +2,9 @@ import * as NumberUtils from "./number.utils";
 
 export const validateReceipt = (s) => {
   if (!s.userId || !s.kontoId || !s.kategorieId || !s.ladenId)
-    return "Bitte User, Konto, Kategorie und Laden wählen.";
+    return "Bitte User, Konto, Kategorie und Laden waehlen.";
   if (!s.name || !s.name.trim()) return "Bezeichnung fehlt.";
-  if (NumberUtils.toNumber(s.betrag) == null) return "Betrag fehlt/ungültig.";
+  if (NumberUtils.toNumber(s.betrag) == null) return "Betrag fehlt/ungueltig.";
   if (!s.datum) return "Datum fehlt.";
   return null;
 };
@@ -22,16 +22,16 @@ export const validateMonthlyCost = ({
   repeatType,
   customInterval,
 }) => {
-  if (!userId) return "Bitte User wählen.";
+  if (!userId) return "Bitte User waehlen.";
   if (!name?.trim()) return "Bezeichnung fehlt.";
-  if (!kategorieId) return "Kategorie wählen.";
+  if (!kategorieId) return "Kategorie waehlen.";
   if (!kontoOutId && !kontoInId)
-    return "Mindestens ein Konto (Ausgang oder Eingang) wählen.";
+    return "Mindestens ein Konto (Ausgang oder Eingang) waehlen.";
   if (!startDatum) return "Start-Datum setzen.";
   if (repeatType === "CUSTOM") {
     const interval = NumberUtils.toNumberOrNull(customInterval);
     if (!Number.isInteger(interval) || interval <= 0) {
-      return "Bei benutzerdefinierter Wiederholung eine ganze Anzahl größer 0 eingeben.";
+      return "Bei benutzerdefinierter Wiederholung eine ganze Anzahl groesser 0 eingeben.";
     }
   }
 
@@ -68,17 +68,24 @@ export function validateSavings({
   if (!kategorieId) return "Kategorie ist erforderlich.";
 
   const start = new Date(startDatum);
-  const end = new Date(endDatum);
-  if (isNaN(+start)) return "Ungültiges Startdatum.";
-  if (isNaN(+end)) return "Ungültiges Enddatum.";
-  if (end < start) return "Enddatum muss nach dem Startdatum liegen.";
+  const end = endDatum ? new Date(endDatum) : null;
+  if (isNaN(+start)) return "Ungueltiges Startdatum.";
+  if (endDatum && isNaN(+end)) return "Ungueltiges Enddatum.";
+  if (end && end < start) return "Enddatum muss nach dem Startdatum liegen.";
 
   const b = num(betrag);
   const se = num(sparrate_e);
   const sp = num(sparrate_p);
   if (b !== null && isNaN(b)) return "Betrag muss eine Zahl sein.";
-  if (se !== null && isNaN(se)) return "Sparrate (€) muss eine Zahl sein.";
+  if (se !== null && isNaN(se)) return "Sparrate (EUR) muss eine Zahl sein.";
   if (sp !== null && isNaN(sp)) return "Sparrate (%) muss eine Zahl sein.";
 
-  return ""; // alles ok
+  const setCount = [endDatum, sparrate_e, sparrate_p].filter(
+    (x) => x !== "" && x !== null && x !== undefined,
+  ).length;
+  if (setCount !== 1) {
+    return "Bitte genau eine Option waehlen: Enddatum, Sparrate (EUR) oder Sparrate (%).";
+  }
+
+  return "";
 }
