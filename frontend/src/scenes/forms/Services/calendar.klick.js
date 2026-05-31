@@ -15,7 +15,7 @@ const sameDay = (d1, d2) =>
  */
 export function makeClickController(
   events,
-  { setInfoAnchor, setInfoItems, setInfoDate }
+  { setInfoAnchor, setInfoItems, setInfoDate },
 ) {
   const openAt = (cellEl, dateObj) => {
     const items = events.filter((e) => sameDay(new Date(e.start), dateObj));
@@ -53,7 +53,7 @@ export function makeClickController(
  */
 export function formatInfoSecondary(
   xp,
-  { catsById, kontenById, securitiesById, usersById }
+  { catsById, kontenById, securitiesById, usersById },
 ) {
   const parts = [];
   if (xp?.betrag != null)
@@ -62,24 +62,29 @@ export function formatInfoSecondary(
     parts.push(`Kategorie: ${catsById?.[xp.kategorie_id] ?? xp.kategorie_id}`);
   if (xp?.ausgangs_konto_id)
     parts.push(
-      `Ausgang: ${kontenById?.[xp.ausgangs_konto_id] ?? xp.ausgangs_konto_id}`
+      `Ausgang: ${kontenById?.[xp.ausgangs_konto_id] ?? xp.ausgangs_konto_id}`,
     );
   if (xp?.eingangs_konto_id)
     parts.push(
-      `Eingang: ${kontenById?.[xp.eingangs_konto_id] ?? xp.eingangs_konto_id}`
+      `Eingang: ${kontenById?.[xp.eingangs_konto_id] ?? xp.eingangs_konto_id}`,
     );
   if (xp?.securities_id)
     parts.push(
-      `Wertpapier: ${securitiesById?.[xp.securities_id] ?? xp.securities_id}`
+      `Wertpapier: ${securitiesById?.[xp.securities_id] ?? xp.securities_id}`,
     );
   if (xp?.anteil != null) parts.push(`Anteil: ${Number(xp.anteil)}`);
   if (xp?.user_id) parts.push(`User: ${usersById?.[xp.user_id] ?? xp.user_id}`);
+  if (xp?.execution_datum)
+    parts.push(
+      `Termin: ${new Date(xp.execution_datum).toLocaleDateString("de-DE")}`,
+    );
   if (xp?.start_datum)
     parts.push(
-      `Start: ${new Date(xp.start_datum).toLocaleDateString("de-DE")}`
+      `Start: ${new Date(xp.start_datum).toLocaleDateString("de-DE")}`,
     );
   if (xp?.next_due)
     parts.push(`Nächste: ${new Date(xp.next_due).toLocaleDateString("de-DE")}`);
-  parts.push(xp?.active ? "Aktiv" : "Inaktiv");
+  if (xp?.status) parts.push(`Status: ${xp.status}`);
+  else parts.push(xp?.active ? "Aktiv" : "Inaktiv");
   return parts.filter(Boolean).join(" · ");
 }

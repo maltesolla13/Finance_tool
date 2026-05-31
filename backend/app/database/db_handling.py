@@ -5,7 +5,7 @@ from backend.app.models.schema import SchemaReceipt, SchemaMonthlyCosts, \
     SchemaKontobewegung, SchemaKontostand, SchemaLaden, SchemaSparziel, \
     SchemaUser, SchemaMonthlyCostsExecution
 from decimal import Decimal
-from datetime import datetime
+# from datetime import datetime
 
 
 def _num(x):

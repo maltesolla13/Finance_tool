@@ -22,6 +22,9 @@ async def lifespan(app: FastAPI):
         install_jobs(app)
         app.state.scheduler_installed = True
     yield
+    scheduler = getattr(app.state, "scheduler", None)
+    if scheduler and scheduler.running:
+        scheduler.shutdown()
 
 app = FastAPI(title="Finance Tool API", lifespan=lifespan)
 

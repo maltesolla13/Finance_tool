@@ -3,6 +3,7 @@ from backend.app.services.depot.jobs import (
     run_depotstand,
     run_monthly_securities
 )
+import backend.app.services.jobs.monthly_and_depot_posting_jobs  # noqa: F401
 
 register(JobDef(
     name="depot.depotstand.run",

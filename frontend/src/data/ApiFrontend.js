@@ -94,6 +94,15 @@ export class ApiRequests {
   deleteMonthlyCosts(id) {
     return this.api.delete(`/monthlycosts/${id}`);
   }
+  listMonthlyCostsExecution() {
+    return this.api.get("/monthlycosts_execution");
+  }
+  createMonthlyCostsExecution(data) {
+    return this.api.post("/monthlycosts_execution", data);
+  }
+  updateMonthlyCostsExecution(id, data) {
+    return this.api.put(`/monthlycosts_execution/${id}`, data);
+  }
 
   // Savings
   listSavings() {

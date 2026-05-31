@@ -4,6 +4,11 @@ from types import SimpleNamespace
 from calendar import monthrange
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import fetch_high_on_or_after
+from backend.app.services.jobs.monthly_and_depot_posting import (
+    _insert_monthlycost_execution,
+    _next_due_date,
+    _to_date,
+)
 
 
 def _add_one_month(d: datetime) -> datetime:
@@ -85,7 +90,30 @@ def run_monthly_securities_jobs(run_date: datetime) -> dict:
                     ))
                     created += 1
 
-                due = _add_one_month(due)
+                _insert_monthlycost_execution(
+                    db,
+                    monthlycost_id=mc["id"],
+                    user_id=mc["user_id"],
+                    name=mc["name"],
+                    betrag=amount,
+                    anteil=shares,
+                    securities_id=mc["securities_id"],
+                    kategorie_id=mc["kategorie_id"],
+                    ausgangs_konto_id=mc["ausgangs_konto_id"],
+                    eingangs_konto_id=mc["eingangs_konto_id"],
+                    execution_datum=due.date(),
+                )
+
+                due = datetime.combine(
+                    _next_due_date(
+                        due.date(),
+                        mc["repeat_type"],
+                        mc["custom_interval"],
+                        mc["custom_unit"],
+                        _to_date(mc["start_datum"]).day,
+                    ),
+                    datetime.min.time(),
+                )
 
             # next_due auf die erste noch NICHT gebuchte Fälligkeit setzen
             db.cursor.execute(

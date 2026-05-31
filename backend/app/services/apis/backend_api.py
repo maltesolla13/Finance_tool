@@ -6,6 +6,14 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 from backend.app.services.depot.daily_jobs import ensure_depotstand_from_last
 from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
+from backend.app.services.jobs.monthly_and_depot_posting import (
+    _backfill_monthlycost_executions_until,
+    _first_due_after,
+    _next_due_date,
+    _set_monthlycost_next_due,
+    _to_date,
+    run_monthlycosts_for_date,
+)
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import (
     fetch_high_on_or_after, fetch_low_on_or_after
@@ -164,14 +172,21 @@ class BackendRoutes:
             out["start_datum"] = self._dt(out["start_datum"])
         if out.get("next_due") is not None:
             out["next_due"] = self._dt(out["next_due"])
-        # Fallback next_due = start_datum
-        if not out.get("next_due"):
-            out["next_due"] = out.get("start_datum")
         # active → 0/1 (INTEGER)
         out["active"] = 1 if bool(out.get("active")) else 0
         out["repeat_type"] = (out.get("repeat_type") or "MONTHLY").upper()
         if out.get("custom_unit") is not None:
             out["custom_unit"] = out["custom_unit"].upper()
+        start_date = _to_date(out.get("start_datum"))
+        next_due_date = _to_date(out.get("next_due")) if out.get(
+            "next_due") else None
+        if start_date and (not next_due_date or next_due_date <= start_date):
+            out["next_due"] = _next_due_date(
+                start_date,
+                out.get("repeat_type"),
+                out.get("custom_interval"),
+                out.get("custom_unit"),
+            )
         return out
 
     def _normalize_monthlycosts_execution(self, d: dict) -> dict:
@@ -282,6 +297,12 @@ class BackendRoutes:
         def run_monthly(date: str | None = None):
             run_date = _parse_date_qs(date)
             return run_monthly_securities_jobs(run_date)
+
+        @jobs.post("/monthlycosts/run")
+        def run_monthlycosts(date: str | None = None):
+            run_date = _parse_date_qs(date)
+            run_monthlycosts_for_date(run_date)
+            return {"ok": True, "date": run_date.strftime("%Y-%m-%d")}
 
         @jobs.post("/depotstand/run")
         def run_depotstand(date: str | None = None):
@@ -510,8 +531,6 @@ class BackendRoutes:
                 p.securities_id = int(
                     p.securities_id) if p.securities_id else None
                 p.active = 1 if bool(p.active) else 0
-                if not p.next_due:
-                    p.next_due = p.start_datum  # fallback
                 p.repeat_type = (p.repeat_type or "MONTHLY").upper()
                 p.custom_interval = (
                     int(p.custom_interval)
@@ -520,6 +539,13 @@ class BackendRoutes:
                 p.custom_unit = (
                     p.custom_unit.upper() if p.custom_unit else None
                 )
+                start_date = _to_date(p.start_datum)
+                next_due_date = _to_date(p.next_due) if p.next_due else None
+                if not next_due_date or next_due_date <= start_date:
+                    p.next_due = _next_due_date(
+                        start_date, p.repeat_type, p.custom_interval,
+                        p.custom_unit
+                    )
 
                 # FK-Checks
                 def exists(table, id_):
@@ -552,6 +578,52 @@ class BackendRoutes:
                         "angeben.")
 
                 db.insert_monthlycosts(p)
+                new_id = db.cursor.lastrowid
+                run_date = datetime.now(TZ).date()
+                if p.active:
+                    _backfill_monthlycost_executions_until(
+                        db,
+                        monthlycost_id=new_id,
+                        user_id=p.user_id,
+                        name=p.name,
+                        betrag=p.betrag,
+                        anteil=p.anteil,
+                        securities_id=p.securities_id,
+                        kategorie_id=p.kategorie_id,
+                        ausgangs_konto_id=p.ausgangs_konto_id,
+                        eingangs_konto_id=p.eingangs_konto_id,
+                        start_datum=p.start_datum,
+                        repeat_type=p.repeat_type,
+                        custom_interval=p.custom_interval,
+                        custom_unit=p.custom_unit,
+                        until_date=run_date,
+                    )
+                    next_due = _first_due_after(
+                        p.start_datum,
+                        run_date,
+                        p.repeat_type,
+                        p.custom_interval,
+                        p.custom_unit,
+                    )
+                    if next_due:
+                        _set_monthlycost_next_due(
+                            db,
+                            mc_id=new_id,
+                            user_id=p.user_id,
+                            name=p.name,
+                            betrag=p.betrag,
+                            anteil=p.anteil,
+                            securities_id=p.securities_id,
+                            kategorie_id=p.kategorie_id,
+                            ausgangs_konto_id=p.ausgangs_konto_id,
+                            eingangs_konto_id=p.eingangs_konto_id,
+                            start_datum=p.start_datum,
+                            next_due=next_due,
+                            repeat_type=p.repeat_type,
+                            custom_interval=p.custom_interval,
+                            custom_unit=p.custom_unit,
+                            active=p.active,
+                        )
                 db.conn.commit()
             finally:
                 db.close()

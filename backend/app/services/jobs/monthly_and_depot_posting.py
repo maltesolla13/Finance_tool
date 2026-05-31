@@ -1,5 +1,5 @@
 # backend/app/services/jobs/monthly_and_depot_posting.py
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 import calendar
 import re
@@ -8,21 +8,54 @@ from backend.app.database.db_handling import DBHandler
 from backend.app.models.schema import (
     SchemaKontobewegung,
     SchemaMonthlyCosts,
+    SchemaMonthlyCostsExecution,
 )
 
 # ----------------------------- Helpers ---------------------------------
 
 
 def _to_date(d) -> date:
-    return d.date() if isinstance(d, datetime) else d
+    if isinstance(d, datetime):
+        return d.date()
+    if isinstance(d, date):
+        return d
+    if isinstance(d, str):
+        return datetime.fromisoformat(d[:10]).date()
+    return d
 
 
-def _add_months(d: date, months: int) -> date:
+def _add_months(d: date, months: int, anchor_day: int | None = None) -> date:
     """Monatsweise weiterschalten (31->Monatsende korrekt)."""
     y = d.year + (d.month - 1 + months) // 12
     m = (d.month - 1 + months) % 12 + 1
     last_day = calendar.monthrange(y, m)[1]
-    return date(y, m, min(d.day, last_day))
+    return date(y, m, min(anchor_day or d.day, last_day))
+
+
+def _next_due_date(
+        d: date,
+        repeat_type: str | None,
+        custom_interval: int | None,
+        custom_unit: str | None,
+        anchor_day: int | None = None) -> date:
+    repeat = (repeat_type or "MONTHLY").upper()
+    if repeat == "WEEKLY":
+        return d + timedelta(days=7)
+    if repeat == "QUARTERLY":
+        return _add_months(d, 3, anchor_day)
+    if repeat == "YEARLY":
+        return _add_months(d, 12, anchor_day)
+    if repeat == "CUSTOM":
+        count = max(1, int(custom_interval or 1))
+        unit = (custom_unit or "MONTHS").upper()
+        if unit == "DAYS":
+            return d + timedelta(days=count)
+        if unit == "WEEKS":
+            return d + timedelta(days=count * 7)
+        if unit == "YEARS":
+            return _add_months(d, count * 12, anchor_day)
+        return _add_months(d, count, anchor_day)
+    return _add_months(d, 1, anchor_day)
 
 
 def _normalize_non_depot_name(name: str) -> str:
@@ -92,6 +125,160 @@ def _insert_kontobewegung(
     db.insert_kontobewegung(payload)
     # nutzt dein existing INSERT. :contentReference[oaicite:2]{index=2}
 
+
+def _monthlycost_execution_exists(
+        db: DBHandler, *, monthlycost_id: int, execution_datum: date) -> bool:
+    db.cursor.execute(
+        """
+        SELECT 1
+        FROM monthlycosts_execution
+        WHERE monthlycost_id = ?
+          AND DATE(execution_datum) = DATE(?)
+        LIMIT 1
+        """,
+        (monthlycost_id, execution_datum.isoformat()),
+    )
+    return db.cursor.fetchone() is not None
+
+
+def _insert_monthlycost_execution(
+    db: DBHandler,
+    *,
+    monthlycost_id: int,
+    user_id: int,
+    name: str,
+    betrag,
+    anteil,
+    securities_id: int | None,
+    kategorie_id: int | None,
+    ausgangs_konto_id: int | None,
+    eingangs_konto_id: int | None,
+    execution_datum: date,
+    status: str = "EXECUTED",
+):
+    if _monthlycost_execution_exists(
+            db, monthlycost_id=monthlycost_id,
+            execution_datum=execution_datum):
+        return
+    db.insert_monthlycosts_execution(
+        SchemaMonthlyCostsExecution(
+            monthlycost_id=monthlycost_id,
+            user_id=user_id,
+            name=name,
+            betrag=Decimal(str(betrag)) if betrag is not None else None,
+            anteil=Decimal(str(anteil)) if anteil is not None else None,
+            securities_id=securities_id,
+            kategorie_id=kategorie_id,
+            ausgangs_konto_id=ausgangs_konto_id,
+            eingangs_konto_id=eingangs_konto_id,
+            execution_datum=datetime.combine(
+                execution_datum, datetime.min.time()),
+            status=status,
+        )
+    )
+
+
+def _backfill_monthlycost_executions_until(
+    db: DBHandler,
+    *,
+    monthlycost_id: int,
+    user_id: int,
+    name: str,
+    betrag,
+    anteil,
+    securities_id: int | None,
+    kategorie_id: int | None,
+    ausgangs_konto_id: int | None,
+    eingangs_konto_id: int | None,
+    start_datum,
+    repeat_type: str | None,
+    custom_interval: int | None,
+    custom_unit: str | None,
+    until_date: date,
+):
+    due = _to_date(start_datum)
+    if not due:
+        return
+
+    anchor_day = due.day
+    guard = 0
+    while due <= until_date and guard < 1000:
+        _insert_monthlycost_execution(
+            db,
+            monthlycost_id=monthlycost_id,
+            user_id=user_id,
+            name=name,
+            betrag=betrag,
+            anteil=anteil,
+            securities_id=securities_id,
+            kategorie_id=kategorie_id,
+            ausgangs_konto_id=ausgangs_konto_id,
+            eingangs_konto_id=eingangs_konto_id,
+            execution_datum=due,
+        )
+        due = _next_due_date(
+            due, repeat_type, custom_interval, custom_unit, anchor_day)
+        guard += 1
+
+
+def _first_due_after(
+        start_datum,
+        after_date: date,
+        repeat_type: str | None,
+        custom_interval: int | None,
+        custom_unit: str | None) -> date | None:
+    due = _to_date(start_datum)
+    if not due:
+        return None
+
+    anchor_day = due.day
+    guard = 0
+    while due <= after_date and guard < 1000:
+        due = _next_due_date(
+            due, repeat_type, custom_interval, custom_unit, anchor_day)
+        guard += 1
+    return due
+
+
+def _set_monthlycost_next_due(
+    db: DBHandler,
+    *,
+    mc_id: int,
+    user_id: int,
+    name: str,
+    betrag,
+    anteil,
+    securities_id: int | None,
+    kategorie_id: int | None,
+    ausgangs_konto_id: int | None,
+    eingangs_konto_id: int | None,
+    start_datum,
+    next_due: date,
+    repeat_type: str | None,
+    custom_interval: int | None,
+    custom_unit: str | None,
+    active,
+):
+    db.update_monthlycosts(
+        SchemaMonthlyCosts(
+            id=mc_id,
+            user_id=user_id,
+            name=name,
+            betrag=Decimal(str(betrag)) if betrag is not None else None,
+            anteil=Decimal(str(anteil)) if anteil is not None else None,
+            securities_id=securities_id,
+            kategorie_id=kategorie_id,
+            ausgangs_konto_id=ausgangs_konto_id,
+            eingangs_konto_id=eingangs_konto_id,
+            start_datum=start_datum,
+            next_due=datetime.combine(next_due, datetime.min.time()),
+            repeat_type=repeat_type,
+            custom_interval=custom_interval,
+            custom_unit=custom_unit,
+            active=active,
+        )
+    )
+
 # ----------------------- 1) MonthlyCosts ausführen ----------------------
 
 
@@ -115,9 +302,50 @@ def run_monthlycosts_for_date(run_date: date):
 
             if not active:
                 continue
+            _backfill_monthlycost_executions_until(
+                db,
+                monthlycost_id=mc_id,
+                user_id=user_id,
+                name=name,
+                betrag=betrag,
+                anteil=anteil,
+                securities_id=securities_id,
+                kategorie_id=kategorie_id,
+                ausgangs_konto_id=ausgangs_konto_id,
+                eingangs_konto_id=eingangs_konto_id,
+                start_datum=start_datum,
+                repeat_type=repeat_type,
+                custom_interval=custom_interval,
+                custom_unit=custom_unit,
+                until_date=run_date,
+            )
             if next_due is None:
                 continue
             due = _to_date(next_due)
+            if due < run_date:
+                new_due = _first_due_after(
+                    start_datum, run_date, repeat_type, custom_interval,
+                    custom_unit)
+                if new_due:
+                    _set_monthlycost_next_due(
+                        db,
+                        mc_id=mc_id,
+                        user_id=user_id,
+                        name=name,
+                        betrag=betrag,
+                        anteil=anteil,
+                        securities_id=securities_id,
+                        kategorie_id=kategorie_id,
+                        ausgangs_konto_id=ausgangs_konto_id,
+                        eingangs_konto_id=eingangs_konto_id,
+                        start_datum=start_datum,
+                        next_due=new_due,
+                        repeat_type=repeat_type,
+                        custom_interval=custom_interval,
+                        custom_unit=custom_unit,
+                        active=active,
+                    )
+                continue
             # nur exakter Fälligkeitstag ausführen
             if due != run_date:
                 continue
@@ -169,29 +397,42 @@ def run_monthlycosts_for_date(run_date: date):
                         datum=run_date,
                     )
 
-            # next_due um genau 1 Monat weiterdrehen
-            new_due = _add_months(due, 1)
-            db.update_monthlycosts(
-                SchemaMonthlyCosts(
-                    id=mc_id,
-                    user_id=user_id,
-                    name=name,
-                    betrag=Decimal(str(
-                        betrag)) if betrag is not None else None,
-                    anteil=Decimal(str(
-                        anteil)) if anteil is not None else None,
-                    securities_id=securities_id,
-                    kategorie_id=kategorie_id,
-                    ausgangs_konto_id=ausgangs_konto_id,
-                    eingangs_konto_id=eingangs_konto_id,
-                    start_datum=start_datum,
-                    next_due=datetime.combine(new_due, datetime.min.time()),
-                    repeat_type=repeat_type,
-                    custom_interval=custom_interval,
-                    custom_unit=custom_unit,
-                    active=active,
-                )
-            )  # nutzt dein UPDATE. :contentReference[oaicite:4]{index=4}
+            _insert_monthlycost_execution(
+                db,
+                monthlycost_id=mc_id,
+                user_id=user_id,
+                name=name,
+                betrag=betrag,
+                anteil=anteil,
+                securities_id=securities_id,
+                kategorie_id=kategorie_id,
+                ausgangs_konto_id=ausgangs_konto_id,
+                eingangs_konto_id=eingangs_konto_id,
+                execution_datum=run_date,
+            )
+
+            # next_due auf den naechsten Termin weiterdrehen
+            new_due = _next_due_date(
+                due, repeat_type, custom_interval, custom_unit,
+                _to_date(start_datum).day)
+            _set_monthlycost_next_due(
+                db,
+                mc_id=mc_id,
+                user_id=user_id,
+                name=name,
+                betrag=betrag,
+                anteil=anteil,
+                securities_id=securities_id,
+                kategorie_id=kategorie_id,
+                ausgangs_konto_id=ausgangs_konto_id,
+                eingangs_konto_id=eingangs_konto_id,
+                start_datum=start_datum,
+                next_due=new_due,
+                repeat_type=repeat_type,
+                custom_interval=custom_interval,
+                custom_unit=custom_unit,
+                active=active,
+            )
 
         db.conn.commit()
     finally:

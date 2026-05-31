@@ -26,23 +26,34 @@ export const toPayloadMonthlyCost = ({
   repeatType,
   customInterval,
   customUnit,
-}) => ({
-  user_id: userId,
-  name: String(name || "").trim(),
-  kategorie_id: kategorieId,
-  ausgangs_konto_id: kontoOutId ?? null,
-  eingangs_konto_id: kontoInId ?? null,
-  betrag: NumberUtils.toNumberOrNull(betrag),
-  anteil: NumberUtils.toNumberOrNull(anteil),
-  securities_id: securityId ?? null,
-  start_datum: DateUtils.isoDateTime(startDatum),
-  next_due: DateUtils.isoDateTime(nextDue || startDatum),
-  repeat_type: repeatType || "MONTHLY",
-  custom_interval:
-    repeatType === "CUSTOM" ? NumberUtils.toNumberOrNull(customInterval) : null,
-  custom_unit: repeatType === "CUSTOM" ? customUnit || "MONTHS" : null,
-  active: !!active,
-});
+}) => {
+  const computedNextDue = DateUtils.nextDueFromRepeat({
+    startDate: startDatum,
+    repeatType,
+    customInterval,
+    customUnit,
+  });
+
+  return {
+    user_id: userId,
+    name: String(name || "").trim(),
+    kategorie_id: kategorieId,
+    ausgangs_konto_id: kontoOutId ?? null,
+    eingangs_konto_id: kontoInId ?? null,
+    betrag: NumberUtils.toNumberOrNull(betrag),
+    anteil: NumberUtils.toNumberOrNull(anteil),
+    securities_id: securityId ?? null,
+    start_datum: DateUtils.isoDateTime(startDatum),
+    next_due: DateUtils.isoDateTime(computedNextDue || nextDue || startDatum),
+    repeat_type: repeatType || "MONTHLY",
+    custom_interval:
+      repeatType === "CUSTOM"
+        ? NumberUtils.toNumberOrNull(customInterval)
+        : null,
+    custom_unit: repeatType === "CUSTOM" ? customUnit || "MONTHS" : null,
+    active: !!active,
+  };
+};
 
 export function toPayloadSavings({
   name,

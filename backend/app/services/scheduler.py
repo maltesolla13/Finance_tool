@@ -1,5 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from backend.app.services.jobs.registry import all_jobs
 import logging
@@ -32,12 +34,17 @@ def install_jobs(app):
         except Exception as e:
             log.exception("Fehler beim Registrieren von %s: %s", job.name, e)
 
-    @app.on_event("startup")
-    async def _start():
-        scheduler.start()
-        log.info("APScheduler gestartet (%d Jobs).", len(scheduler.get_jobs()))
-
-    @app.on_event("shutdown")
-    async def _stop():
-        scheduler.shutdown()
-        log.info("APScheduler gestoppt.")
+    scheduler.start()
+    run_at = datetime.now(tz) + timedelta(seconds=3)
+    for job in all_jobs().values():
+        scheduler.add_job(
+            lambda j=job: j.fn(None),
+            DateTrigger(run_date=run_at, timezone=tz),
+            id=f"{job.name}:startup",
+            name=f"{job.description} (Startup)",
+            max_instances=1,
+            replace_existing=True,
+        )
+    app.state.scheduler = scheduler
+    log.info("APScheduler gestartet (%d Jobs).", len(scheduler.get_jobs()))
+    return scheduler
