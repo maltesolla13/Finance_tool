@@ -17,7 +17,6 @@ import {
 } from "@mui/material";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
-import { ResponsivePie } from "@nivo/pie";
 import Header from "../../components/Header";
 import { tokens } from "../../theme";
 import { ApiClient } from "../../data/ApiClient";
@@ -51,6 +50,122 @@ const fmtShares = (v) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 6,
   }).format(Number(v || 0));
+
+const PIE_COLORS = [
+  "#4cceac",
+  "#6870fa",
+  "#f1b53f",
+  "#db4f4a",
+  "#7fc8f8",
+  "#c77dff",
+  "#8ac926",
+  "#ff8fab",
+];
+
+const polarToCartesian = (cx, cy, radius, angle) => {
+  const rad = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(rad),
+    y: cy + radius * Math.sin(rad),
+  };
+};
+
+const describeArc = (cx, cy, radius, startAngle, endAngle) => {
+  const start = polarToCartesian(cx, cy, radius, endAngle);
+  const end = polarToCartesian(cx, cy, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    "Z",
+  ].join(" ");
+};
+
+function InstrumentPieChart({ data = [] }) {
+  const theme = useTheme();
+  const colors = tokens(theme.palette.mode);
+  const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+  if (!data.length || total <= 0) {
+    return (
+      <Box height="100%" display="flex" alignItems="center" justifyContent="center">
+        Keine Aufteilung vorhanden.
+      </Box>
+    );
+  }
+
+  let current = 0;
+  const slices = data.map((item, index) => {
+    const value = Number(item.value || 0);
+    const angle = (value / total) * 360;
+    const start = current;
+    const end = current + angle;
+    current = end;
+    return {
+      ...item,
+      color: PIE_COLORS[index % PIE_COLORS.length],
+      path: describeArc(170, 170, 130, start, end),
+      labelPoint: polarToCartesian(170, 170, 92, start + angle / 2),
+    };
+  });
+
+  return (
+    <Box
+      height="100%"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      sx={{ minHeight: 320 }}
+    >
+      <svg viewBox="0 0 340 340" width="100%" height="100%">
+        {slices.map((slice) => (
+          <g key={slice.id}>
+            <path
+              d={slice.path}
+              fill={slice.color}
+              stroke={colors.primary[500]}
+              strokeWidth="3"
+            />
+            {Number(slice.percentage || 0) >= 6 && (
+              <text
+                x={slice.labelPoint.x}
+                y={slice.labelPoint.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#ffffff"
+                fontSize="13"
+                fontWeight="700"
+              >
+                {fmtPct(slice.percentage)}
+              </text>
+            )}
+          </g>
+        ))}
+        <circle cx="170" cy="170" r="68" fill={colors.primary[400]} />
+        <text
+          x="170"
+          y="162"
+          textAnchor="middle"
+          fill={colors.grey[100]}
+          fontSize="15"
+          fontWeight="700"
+        >
+          Wert
+        </text>
+        <text
+          x="170"
+          y="184"
+          textAnchor="middle"
+          fill={colors.grey[300]}
+          fontSize="12"
+        >
+          {fmtEuro(total)}
+        </text>
+      </svg>
+    </Box>
+  );
+}
 
 function LineChart({ series = [], height = 320, compact = false }) {
   const theme = useTheme();
@@ -383,44 +498,40 @@ const Portfolio = () => {
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} md={7}>
-            <Box height={320}>
-              {pieData.length ? (
-                <ResponsivePie
-                  data={pieData}
-                  margin={{ top: 24, right: 24, bottom: 24, left: 24 }}
-                  innerRadius={0.55}
-                  padAngle={0.7}
-                  cornerRadius={2}
-                  activeOuterRadiusOffset={8}
-                  colors={{ scheme: "set2" }}
-                  borderWidth={1}
-                  borderColor={{ from: "color", modifiers: [["darker", 0.2]] }}
-                  enableArcLabels={false}
-                  arcLinkLabelsSkipAngle={10}
-                  arcLinkLabelsTextColor={colors.grey[100]}
-                  arcLinkLabelsThickness={2}
-                  arcLinkLabelsColor={{ from: "color" }}
-                  valueFormat={(v) => fmtEuro(v)}
-                />
-              ) : (
-                <Box height="100%" display="flex" alignItems="center" justifyContent="center">
-                  Keine Aufteilung vorhanden.
-                </Box>
-              )}
+            <Box height={340}>
+              <InstrumentPieChart data={pieData} />
             </Box>
           </Grid>
           <Grid item xs={12} md={5}>
             <Stack spacing={1.5}>
-              {pieData.map((item) => (
+              {pieData.map((item, index) => (
                 <Stack
                   key={item.id}
                   direction="row"
                   alignItems="center"
                   justifyContent="space-between"
+                  spacing={3}
                   sx={{ borderBottom: `1px solid ${colors.primary[400]}`, pb: 1 }}
                 >
-                  <Typography variant="body1">{item.label}</Typography>
-                  <Typography variant="body1" fontWeight="700">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        bgcolor: PIE_COLORS[index % PIE_COLORS.length],
+                        borderRadius: "2px",
+                      }}
+                    />
+                    <Typography variant="body1" sx={{ minWidth: 120 }}>
+                      {item.label}
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="body1"
+                    fontWeight="700"
+                    textAlign="right"
+                    sx={{ minWidth: 190 }}
+                  >
                     {fmtPct(item.percentage)} · {fmtEuro(item.value)}
                   </Typography>
                 </Stack>
