@@ -82,6 +82,8 @@ class SchemaKontostand:
 class SchemaDepotbewegung:
     user_id: Optional[int] = None
     konto_id: Optional[int] = None
+    ausgangs_konto_id: Optional[int] = None
+    eingangs_konto_id: Optional[int] = None
     securities_id: Optional[int] = None
     kategorie_id: Optional[int] = None
     type: Optional[str] = None

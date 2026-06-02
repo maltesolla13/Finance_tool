@@ -11,7 +11,7 @@ import AddSecurities from "./scenes/forms/addsecurities";
 import AddMonthlyCosts from "./scenes/forms/addmonthlycosts";
 import AddSavings from "./scenes/forms/addsavings";
 import BuySellSecurities from "./scenes/forms/buysellsecurities";
-// import Portfolio from "./scenes/portfolio/home";
+import Portfolio from "./scenes/portfolio/home";
 // import Perfomrance from "./scenes/portfolio/performance";
 // import Development from "./scenes/portfolio/development";
 
@@ -44,7 +44,7 @@ function App() {
               <Route path="/forms/addsavings" element={<AddSavings />} />
               <Route path="/forms/buysellsecurities" element={<BuySellSecurities />} />
               {/* <Route path="/accounts" element={<Account/>}/> />*/}
-              {/* <Route path="/portfolio" element={<Portfolio/>}/> />*/}
+              <Route path="/portfolio" element={<Portfolio />} />
               {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> />*/}
               {/* <Route path="/savings" element={<Distribution/>}/> />*/}
             </Routes>

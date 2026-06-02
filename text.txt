@@ -1,0 +1,18 @@
+okay, damit sind fürs erste alle eingabe formen fertig. als nächstes möchte ich anzeigen und übersichten
+erstellen und in den einzelnen Bereichen darstellen. die Dahboard seite wird erst ganz zum schluss gemacht.
+zuerst Portfolio: Portfolio hat eine liste, in der alle Konten, die als eingangskoto bei aktienkauf
+oder bei monthlycosts mit aktien als eingangskoto haben geliset werden. (liste soll als Dropdon in der
+seite oben integreirt werden und mehrfachauswah zulassen, damit man auswählen kann ob man alle, oder
+nur einzelen oder kombinationen davon angezeigt haben möchte. liste soll ein select all haben, dass
+wenn alle ausgewählt sind beim draufklicken alles disselected. standardmäßig sollen alle ausgewählt sein)
+Nachfolgend der aufbau der seite. der augfbau ist immer gleich, aber es soll halt alles immer für alle
+ausgewähltne konten zusammen angezeigt werden
+- Zuerst ein Großes Diagramm, dass die Depotentwicklung anzeigt, mit wählbaren zeiträumen Woche/monat/halbjahr/Jahr/5 Jahre/Max. 
+    das diagramm sollden akummulierten Wert der Akzien und den akumulierten KAufpreis anzeigen, x achse ist Zeit,
+    y ist wert in €. rechts von dem Diagrmm soll angelegeter Betrag (gesamt), vermögen (gesamt) entwicklung in € & %
+    für den gewählten Zeitraum sein.
+- Dann kommt Depot aufteilung:, da werden die einzelnen instrument einträge von den aktien in einem piechart dargestellt,
+    (also soviele anteiel gesamt sind etf, soviele aktien...) und rechts davon gibt es einmal anteiel in prozent und Wert in €
+- Abschließend kommt für jede Anlage ein diagramm mit der entwicklung über den oben gewählten zeitraum, mit rechts davon Anteile,
+    Wert (in €), Einkaufspreis(in €), Aktiver Sparplan(in €) und Sparplanausführung datum. wichtig jede anlage hat die Namen über dem diagramm.
+    es können immer zwei nebeneinander dargestellt werden.

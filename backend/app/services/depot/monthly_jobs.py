@@ -81,6 +81,8 @@ def run_monthly_securities_jobs(run_date: datetime) -> dict:
                     db.insert_depotbewegung(SimpleNamespace(
                         user_id=mc["user_id"],
                         konto_id=konto_id,
+                        ausgangs_konto_id=mc["ausgangs_konto_id"],
+                        eingangs_konto_id=mc["eingangs_konto_id"],
                         securities_id=mc["securities_id"],
                         kategorie_id=mc["kategorie_id"],
                         type="Sparplan",

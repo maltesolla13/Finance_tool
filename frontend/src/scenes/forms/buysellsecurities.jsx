@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
   TextField,
@@ -30,7 +30,7 @@ import * as Payloads from "./Services/payloads";
 import { MarketService } from "./Services/market.service";
 import {
   UserAutocomplete,
-  KontoAutocomplete,
+  DualKontoAutocomplete,
   SecurityAutocomplete,
   KategorieAutocomplete,
 } from "./Services/autocomplete";
@@ -41,7 +41,8 @@ import {
 
 function validateDepotbewegung({
   userId,
-  kontoId,
+  kontoOutId,
+  kontoInId,
   securityId,
   kategorieId,
   betrag,
@@ -49,7 +50,8 @@ function validateDepotbewegung({
   datum,
 }) {
   if (!userId) return "Bitte User wählen.";
-  if (!kontoId) return "Bitte Konto wählen.";
+  if (!kontoOutId || !kontoInId)
+    return "Bitte Ausgangs- und Eingangskonto wählen.";
   if (!securityId) return "Bitte Wertpapier wählen.";
   if (!kategorieId) return "Bitte Kategorie wählen (oder neu anlegen).";
   if (!datum) return "Bitte Datum wählen.";
@@ -83,12 +85,14 @@ const BuySellSecurities = () => {
 
   // Autocomplete states
   const [userId, setUserId] = useState(null);
-  const [kontoId, setKontoId] = useState(null);
+  const [kontoOutId, setKontoOutId] = useState(null);
+  const [kontoInId, setKontoInId] = useState(null);
   const [securityId, setSecurityId] = useState(null);
   const [kategorieId, setKategorieId] = useState(null);
 
   const [inputUser, setInputUser] = useState("");
-  const [inputKonto, setInputKonto] = useState("");
+  const [inputKontoOut, setInputKontoOut] = useState("");
+  const [inputKontoIn, setInputKontoIn] = useState("");
   const [inputSec, setInputSec] = useState("");
   const [inputCat, setInputCat] = useState("");
 
@@ -119,7 +123,7 @@ const BuySellSecurities = () => {
   const refreshOptions = useCallback(
     async ({
       users = inputUser,
-      konten = inputKonto,
+      konten = "",
       secs = inputSec,
       cats = inputCat,
     } = {}) => {
@@ -142,14 +146,17 @@ const BuySellSecurities = () => {
         setLoadingOpts(false);
       }
     },
-    [optService, inputUser, inputKonto, inputSec, inputCat]
+    [optService, inputUser, inputSec, inputCat]
   );
+
+  const depotKontoId = useMemo(() => {
+    if (typ === "Verkauf") return kontoOutId;
+    return kontoInId;
+  }, [typ, kontoOutId, kontoInId]);
 
   // Preis und Anteil Berechnung
   const [lastEdited, setLastEdited] = useState(null); // "betrag" | "anteile"
-  const [pricePerShare, setPricePerShare] = useState(null);
-  const [priceSource, setPriceSource] = useState("auto"); // "auto" | "low" | "high"
-  const reqIdRef = useRef(0); // Race-Condition Schutz
+  const priceSource = "auto"; // "auto" | "low" | "high"
 
   // Hole den ausgewählten Security-Option-Eintrag (mit ticker)
   const selectedSec = useMemo(
@@ -180,13 +187,18 @@ const BuySellSecurities = () => {
     const id = setTimeout(() => {
       refreshOptions({
         users: inputUser,
-        konten: inputKonto,
+        konten: "",
         secs: inputSec,
         cats: inputCat,
       });
     }, 250);
     return () => clearTimeout(id);
-  }, [inputUser, inputKonto, inputSec, inputCat, refreshOptions]);
+  }, [
+    inputUser,
+    inputSec,
+    inputCat,
+    refreshOptions,
+  ]);
 
   const loadRows = useCallback(async () => {
     setLoadingRows(true);
@@ -195,7 +207,7 @@ const BuySellSecurities = () => {
         from: filterFrom,
         to: filterTo,
         user_id: userId ?? undefined,
-        konto_id: kontoId ?? undefined,
+        konto_id: depotKontoId ?? undefined,
         securities_id: securityId ?? undefined,
         kategorie_id: kategorieId ?? undefined,
       };
@@ -206,7 +218,15 @@ const BuySellSecurities = () => {
     } finally {
       setLoadingRows(false);
     }
-  }, [api, filterFrom, filterTo, userId, kontoId, securityId, kategorieId]);
+  }, [
+    api,
+    filterFrom,
+    filterTo,
+    userId,
+    depotKontoId,
+    securityId,
+    kategorieId,
+  ]);
 
   useEffect(() => {
     loadRows();
@@ -225,8 +245,6 @@ const BuySellSecurities = () => {
           side: typ,
         });
         if (!active || !Number.isFinite(Number(p))) return;
-        setPricePerShare(p);
-
         // Nur berechnen, wenn genau EIN Feld gefüllt ist
         const hasBetrag = betrag !== "" && betrag != null;
         const hasAnteile = anteile !== "" && anteile != null;
@@ -257,7 +275,8 @@ const BuySellSecurities = () => {
 
     const validation = validateDepotbewegung({
       userId,
-      kontoId,
+      kontoOutId,
+      kontoInId,
       securityId,
       kategorieId,
       betrag,
@@ -271,7 +290,9 @@ const BuySellSecurities = () => {
 
     const payload = Payloads.toPayloadDepotbewegung({
       userId,
-      kontoId,
+      kontoId: depotKontoId,
+      kontoOutId,
+      kontoInId,
       securityId,
       kategorieId,
       typ,
@@ -328,13 +349,19 @@ const BuySellSecurities = () => {
                 loading={loadingOpts}
               />
 
-              <KontoAutocomplete
+              <DualKontoAutocomplete
                 options={optKonten}
-                valueId={kontoId}
-                inputValue={inputKonto}
-                onInputChange={setInputKonto}
-                onSelectId={setKontoId}
+                outId={kontoOutId}
+                inId={kontoInId}
+                outInput={inputKontoOut}
+                inInput={inputKontoIn}
+                onOutInput={setInputKontoOut}
+                onInInput={setInputKontoIn}
+                onOutSelect={setKontoOutId}
+                onInSelect={setKontoInId}
                 loading={loadingOpts}
+                errorOut={!kontoOutId}
+                errorIn={!kontoInId}
               />
 
               <SecurityAutocomplete
@@ -464,7 +491,8 @@ const BuySellSecurities = () => {
                       <TableCell>Typ</TableCell>
                       <TableCell>Wertpapier</TableCell>
                       <TableCell>Kategorie</TableCell>
-                      <TableCell>Konto</TableCell>
+                      <TableCell>Ausgangskonto</TableCell>
+                      <TableCell>Eingangskonto</TableCell>
                       <TableCell align="right">Betrag (€)</TableCell>
                       <TableCell align="right">Anteile</TableCell>
                     </TableRow>
@@ -489,9 +517,16 @@ const BuySellSecurities = () => {
                               ""}
                           </TableCell>
                           <TableCell>
-                            {kontenById[r.konto_id] ??
-                              r.konto_name ??
-                              r.konto_id}
+                            {kontenById[r.ausgangs_konto_id] ??
+                              r.ausgangs_konto_name ??
+                              r.ausgangs_konto_id ??
+                              ""}
+                          </TableCell>
+                          <TableCell>
+                            {kontenById[r.eingangs_konto_id] ??
+                              r.eingangs_konto_name ??
+                              r.eingangs_konto_id ??
+                              ""}
                           </TableCell>
                           <TableCell align="right">
                             {r.betrag != null
@@ -506,7 +541,7 @@ const BuySellSecurities = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7}>
+                        <TableCell colSpan={8}>
                           <Typography variant="body2" color="text.secondary">
                             Keine Einträge gefunden.
                           </Typography>

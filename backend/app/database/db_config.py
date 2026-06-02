@@ -116,6 +116,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         konto_id INTEGER NOT NULL,
+        ausgangs_konto_id INTEGER,
+        eingangs_konto_id INTEGER,
         securities_id INTEGER NOT NULL,
         kategorie_id INTEGER,
         type TEXT NOT NULL,
@@ -124,9 +126,27 @@ def init_db():
         datum TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id),
         FOREIGN KEY (konto_id) REFERENCES konten(id),
+        FOREIGN KEY (ausgangs_konto_id) REFERENCES konten(id),
+        FOREIGN KEY (eingangs_konto_id) REFERENCES konten(id),
         FOREIGN KEY (securities_id) REFERENCES securities(id),
         FOREIGN KEY (kategorie_id) REFERENCES kategorien(id)
     )
+    """)
+    depotbewegung_cols = {
+        row[1]: row for row in cursor.execute("PRAGMA table_info(depotbewegung)")
+    }
+    if "ausgangs_konto_id" not in depotbewegung_cols:
+        cursor.execute(
+            "ALTER TABLE depotbewegung ADD COLUMN ausgangs_konto_id INTEGER"
+        )
+    if "eingangs_konto_id" not in depotbewegung_cols:
+        cursor.execute(
+            "ALTER TABLE depotbewegung ADD COLUMN eingangs_konto_id INTEGER"
+        )
+    cursor.execute("""
+        UPDATE depotbewegung
+        SET ausgangs_konto_id = COALESCE(ausgangs_konto_id, konto_id),
+            eingangs_konto_id = COALESCE(eingangs_konto_id, konto_id)
     """)
 
     # Depotstand

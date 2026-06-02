@@ -451,12 +451,20 @@ def mirror_depotbewegung_to_kontobewegung(only_for_date: date | None = None):
     db = DBHandler()
     try:
         rows = db.load_depotbewegung()
-        # [(id, user_id, konto_id, securities_id, kategorie_id,
-        # type, betrag, anteile, datum)] :contentReference[oaicite:5]
+        # [(id, user_id, konto_id, ausgangs_konto_id, eingangs_konto_id,
+        # securities_id, kategorie_id, type, betrag, anteile, datum)]
         # {index=5}
         # baue Kontonamen-Map nur 1x
-        for (dep_id, user_id, depot_konto_id, securities_id, kategorie_id,
-             type_, betrag, anteile, datum) in rows:
+        for r in rows:
+            dep_id = r["id"]
+            user_id = r["user_id"]
+            depot_konto_id = r["konto_id"]
+            ausgangs_konto_id = r["ausgangs_konto_id"]
+            eingangs_konto_id = r["eingangs_konto_id"]
+            kategorie_id = r["kategorie_id"]
+            type_ = r["type"]
+            betrag = r["betrag"]
+            datum = r["datum"]
 
             if only_for_date:
                 if _to_date(datum) != _to_date(only_for_date):
@@ -465,16 +473,21 @@ def mirror_depotbewegung_to_kontobewegung(only_for_date: date | None = None):
             if betrag is None or type_ is None:
                 continue
 
-            cash_konto_id = _map_depotkonto_to_cash_konto_id(
-                db, depot_konto_id)
-
             label = f"AUTO: depot#{dep_id} {type_.lower()}"
             amount = Decimal(str(betrag))
 
             if type_.lower() == "kauf":
+                cash_konto_id = (
+                    ausgangs_konto_id
+                    or _map_depotkonto_to_cash_konto_id(db, depot_konto_id)
+                )
                 post_amount = Decimal(-abs(amount))
                 post_type = "Depot Kauf"
             elif type_.lower() == "verkauf":
+                cash_konto_id = (
+                    eingangs_konto_id
+                    or _map_depotkonto_to_cash_konto_id(db, depot_konto_id)
+                )
                 post_amount = Decimal(abs(amount))
                 post_type = "Depot Verkauf"
             else:

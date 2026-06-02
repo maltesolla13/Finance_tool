@@ -14,10 +14,11 @@ from backend.app.services.jobs.monthly_and_depot_posting import (
     _to_date,
     run_monthlycosts_for_date,
 )
-from backend.app.services.jobs.savings_execution import recalc_all_savings, recalc_savings
+from backend.app.services.jobs.savings_execution import (
+    recalc_all_savings, recalc_savings)
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import (
-    fetch_high_on_or_after, fetch_low_on_or_after
+    fetch_high_on_or_after, fetch_low_on_or_after, fetch_low_on_or_before
 )
 from backend.app.models.schema import SchemaKonto, \
     SchemaUser, SchemaMonthlyCosts, SchemaReceipt, SchemaKategorie, \
@@ -217,6 +218,32 @@ class BackendRoutes:
             out["end_datum"] = self._dt(out["end_datum"])
         return out
 
+    def _normalize_depotbewegung(self, d: dict) -> dict:
+        out = dict(d)
+        for k in ("user_id", "konto_id", "ausgangs_konto_id",
+                  "eingangs_konto_id", "securities_id", "kategorie_id"):
+            if out.get(k) is not None:
+                out[k] = int(out[k])
+        if out.get("datum") is not None:
+            out["datum"] = self._dt(out["datum"])
+
+        type_lower = (out.get("type") or "").strip().lower()
+        if out.get("konto_id") is None:
+            if type_lower == "kauf":
+                out["konto_id"] = out.get("eingangs_konto_id")
+            elif type_lower == "verkauf":
+                out["konto_id"] = out.get("ausgangs_konto_id")
+            else:
+                out["konto_id"] = (
+                    out.get("eingangs_konto_id")
+                    or out.get("ausgangs_konto_id")
+                )
+        if out.get("ausgangs_konto_id") is None:
+            out["ausgangs_konto_id"] = out.get("konto_id")
+        if out.get("eingangs_konto_id") is None:
+            out["eingangs_konto_id"] = out.get("konto_id")
+        return out
+
     def _is_gehalt_category(self, db: DBHandler, kategorie_id: int | None):
         if not kategorie_id:
             return False
@@ -224,6 +251,30 @@ class BackendRoutes:
             "SELECT name FROM kategorien WHERE id = ?", (kategorie_id,)
         ).fetchone()
         return bool(row and (row["name"] or "").strip().lower() == "gehalt")
+
+    def _invalidate_depotstand_from(
+            self,
+            db: DBHandler,
+            *,
+            user_id: int | None,
+            konto_id: int | None,
+            securities_id: int | None,
+            datum) -> None:
+        if not konto_id or not securities_id or not datum:
+            return
+        db.cursor.execute("""
+            DELETE FROM depotstand
+            WHERE konto_id = ?
+              AND securities_id = ?
+              AND (? IS NULL OR user_id = ?)
+              AND DATE(datum) >= DATE(?)
+        """, (
+            konto_id,
+            securities_id,
+            user_id,
+            user_id,
+            self._dt(datum),
+        ))
 
     # ---- Request/Route-Definitionen -----------------------------------------
     def request_handling(self) -> None:
@@ -302,6 +353,7 @@ class BackendRoutes:
                 db.close()
 
         jobs = APIRouter(prefix="/jobs", tags=["Jobs"])
+        portfolio = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
         @jobs.post("/monthly-securities/run")
         def run_monthly(date: str | None = None):
@@ -323,6 +375,291 @@ class BackendRoutes:
         def run_depotstand(date: str | None = None):
             run_date = _parse_date_qs(date)
             return ensure_depotstand_from_last(run_date)
+
+        def _range_start(period: str | None) -> str | None:
+            today = datetime.now(TZ).date()
+            p = (period or "MAX").upper()
+            if p == "WEEK":
+                return (today - date.resolution * 7).isoformat()
+            if p == "MONTH":
+                return (today.replace(day=1)).isoformat()
+            if p == "HALFYEAR":
+                return (today - date.resolution * 183).isoformat()
+            if p == "YEAR":
+                return (today - date.resolution * 365).isoformat()
+            if p == "5Y":
+                return (today - date.resolution * 365 * 5).isoformat()
+            return None
+
+        def _parse_account_ids(account_ids: str | None) -> list[int]:
+            if not account_ids:
+                return []
+            out = []
+            for raw in account_ids.split(","):
+                raw = raw.strip()
+                if raw:
+                    out.append(int(raw))
+            return out
+
+        def _placeholders(values: list[int]) -> str:
+            return ",".join("?" for _ in values)
+
+        @portfolio.get("/summary")
+        def portfolio_summary(
+            account_ids: str | None = Query(None),
+            period: str = Query("MAX"),
+        ):
+            selected_ids = _parse_account_ids(account_ids)
+            period_start = _range_start(period)
+            db = DBHandler()
+            try:
+                account_rows = db.cursor.execute("""
+                    SELECT DISTINCT k.id, k.name
+                    FROM konten k
+                    WHERE k.id IN (
+                        SELECT eingangs_konto_id
+                        FROM depotbewegung
+                        WHERE eingangs_konto_id IS NOT NULL
+                    )
+                    OR k.id IN (
+                        SELECT eingangs_konto_id
+                        FROM monthlycosts
+                        WHERE securities_id IS NOT NULL
+                          AND eingangs_konto_id IS NOT NULL
+                    )
+                    ORDER BY k.name
+                """).fetchall()
+                accounts = [
+                    {"id": r["id"], "name": r["name"]}
+                    for r in account_rows
+                ]
+                if not selected_ids:
+                    selected_ids = [a["id"] for a in accounts]
+
+                if not selected_ids:
+                    return {
+                        "accounts": accounts,
+                        "selected_account_ids": [],
+                        "period": period,
+                        "overview": [],
+                        "totals": {
+                            "invested": 0,
+                            "value": 0,
+                            "development": 0,
+                            "development_pct": 0,
+                        },
+                        "allocation": [],
+                        "assets": [],
+                    }
+
+                account_sql = _placeholders(selected_ids)
+                account_params = tuple(selected_ids)
+                movement_rows = db.cursor.execute(f"""
+                    SELECT db.user_id, db.konto_id, db.securities_id,
+                           db.type, db.betrag, db.anteile, DATE(db.datum) AS d,
+                           s.name, s.instrument, s.ticker, s.isin
+                    FROM depotbewegung db
+                    JOIN securities s ON s.id = db.securities_id
+                    WHERE db.konto_id IN ({account_sql})
+                    ORDER BY DATE(db.datum), db.id
+                """, account_params).fetchall()
+
+                price_cache = {}
+
+                def price_for(ticker: str | None, iso_date: str):
+                    if not ticker:
+                        return 0.0
+                    key = (ticker, iso_date)
+                    if key not in price_cache:
+                        try:
+                            dt = datetime.fromisoformat(iso_date[:10])
+                            price_cache[key] = float(
+                                fetch_low_on_or_before(ticker, dt)
+                            )
+                        except Exception:
+                            price_cache[key] = 0.0
+                    return price_cache[key]
+
+                asset_meta = {}
+                state = {}
+                dates = []
+                for r in movement_rows:
+                    sec_id = r["securities_id"]
+                    asset_meta[sec_id] = {
+                        "name": r["name"],
+                        "instrument": r["instrument"],
+                        "ticker": r["ticker"],
+                        "isin": r["isin"],
+                    }
+                    if sec_id not in state:
+                        state[sec_id] = {"shares": 0.0, "invested": 0.0}
+                    sign = -1 if (r["type"] or "").lower() == "verkauf" else 1
+                    state[sec_id]["shares"] += sign * float(r["anteile"] or 0)
+                    state[sec_id]["invested"] += sign * float(r["betrag"] or 0)
+                    if r["d"] not in dates:
+                        dates.append(r["d"])
+
+                if not dates:
+                    overview = []
+                    asset_map = {}
+                else:
+                    today_iso = datetime.now(TZ).date().isoformat()
+                    if today_iso not in dates:
+                        dates.append(today_iso)
+                    dates = sorted(dates)
+
+                    running = {
+                        sec_id: {"shares": 0.0, "invested": 0.0}
+                        for sec_id in asset_meta
+                    }
+                    moves_by_date = {}
+                    for r in movement_rows:
+                        moves_by_date.setdefault(r["d"], []).append(r)
+
+                    overview = []
+                    series_by_sec = {sec_id: [] for sec_id in asset_meta}
+                    for d in dates:
+                        for r in moves_by_date.get(d, []):
+                            sec_id = r["securities_id"]
+                            sign = (
+                                -1
+                                if (r["type"] or "").lower() == "verkauf"
+                                else 1
+                            )
+                            running[sec_id]["shares"] += sign * float(
+                                r["anteile"] or 0)
+                            running[sec_id]["invested"] += sign * float(
+                                r["betrag"] or 0)
+
+                        total_invested = 0.0
+                        total_value = 0.0
+                        for sec_id, values in running.items():
+                            meta = asset_meta[sec_id]
+                            sec_value = values["shares"] * price_for(
+                                meta["ticker"], d)
+                            total_invested += values["invested"]
+                            total_value += sec_value
+                            series_by_sec[sec_id].append({
+                                "date": d,
+                                "invested": values["invested"],
+                                "value": sec_value,
+                            })
+                        if not period_start or d >= period_start:
+                            overview.append({
+                                "date": d,
+                                "invested": total_invested,
+                                "value": total_value,
+                            })
+
+                    latest_state = {
+                        sec_id: vals
+                        for sec_id, vals in running.items()
+                        if abs(vals["shares"]) > 0.0000001
+                    }
+                    asset_map = {}
+                    for sec_id, vals in latest_state.items():
+                        meta = asset_meta[sec_id]
+                        latest_value = vals["shares"] * price_for(
+                            meta["ticker"], today_iso)
+                        filtered_series = [
+                            p for p in series_by_sec[sec_id]
+                            if not period_start or p["date"] >= period_start
+                        ]
+                        asset_map[sec_id] = {
+                            "security_id": sec_id,
+                            "name": meta["name"],
+                            "instrument": meta["instrument"],
+                            "ticker": meta["ticker"],
+                            "isin": meta["isin"],
+                            "shares": vals["shares"],
+                            "value": latest_value,
+                            "invested": vals["invested"],
+                            "series": filtered_series,
+                            "active_savings": 0,
+                            "next_execution_date": None,
+                        }
+
+                totals = {
+                    "invested": sum(a["invested"] for a in asset_map.values()),
+                    "value": sum(a["value"] for a in asset_map.values()),
+                }
+                totals["development"] = totals["value"] - totals["invested"]
+                totals["development_pct"] = (
+                    (totals["development"] / totals["invested"]) * 100
+                    if totals["invested"] else 0
+                )
+
+                allocation_map = {}
+                for asset in asset_map.values():
+                    instrument = asset["instrument"] or "Unbekannt"
+                    allocation_map[instrument] = (
+                        allocation_map.get(instrument, 0) + asset["value"]
+                    )
+                total_value = totals["value"]
+                allocation = [
+                    {
+                        "id": instrument,
+                        "label": instrument,
+                        "value": value,
+                        "percentage": (
+                            (value / total_value) * 100
+                            if total_value else 0
+                        ),
+                    }
+                    for instrument, value in sorted(allocation_map.items())
+                ]
+
+                savings_rows = db.cursor.execute(f"""
+                    SELECT mc.securities_id,
+                           s.name, s.instrument, s.ticker, s.isin,
+                           SUM(COALESCE(mc.betrag, 0)) AS amount,
+                           MIN(DATE(mc.next_due)) AS next_due
+                    FROM monthlycosts
+                    mc JOIN securities s ON s.id = mc.securities_id
+                    WHERE mc.active = 1
+                      AND mc.securities_id IS NOT NULL
+                      AND mc.eingangs_konto_id IN ({account_sql})
+                    GROUP BY mc.securities_id, s.name, s.instrument,
+                             s.ticker, s.isin
+                """, account_params).fetchall()
+                for r in savings_rows:
+                    asset = asset_map.get(r["securities_id"])
+                    if not asset:
+                        asset = {
+                            "security_id": r["securities_id"],
+                            "name": r["name"],
+                            "instrument": r["instrument"],
+                            "ticker": r["ticker"],
+                            "isin": r["isin"],
+                            "shares": 0,
+                            "value": 0,
+                            "invested": 0,
+                            "series": [],
+                            "active_savings": 0,
+                            "next_execution_date": None,
+                        }
+                        asset_map[r["securities_id"]] = asset
+                    if asset:
+                        asset["active_savings"] = float(r["amount"] or 0)
+                        asset["next_execution_date"] = r["next_due"]
+
+                assets = sorted(
+                    asset_map.values(),
+                    key=lambda item: item["value"],
+                    reverse=True,
+                )
+
+                return {
+                    "accounts": accounts,
+                    "selected_account_ids": selected_ids,
+                    "period": period,
+                    "overview": overview,
+                    "totals": totals,
+                    "allocation": allocation,
+                    "assets": assets,
+                }
+            finally:
+                db.close()
 
         # ---- Konto ----
         def get_konto() -> List[SchemaKonto]:
@@ -1117,6 +1454,8 @@ class BackendRoutes:
                         id=r["id"],
                         user_id=r["user_id"],
                         konto_id=r["konto_id"],
+                        ausgangs_konto_id=r["ausgangs_konto_id"],
+                        eingangs_konto_id=r["eingangs_konto_id"],
                         securities_id=r["securities_id"],
                         kategorie_id=r["kategorie_id"],
                         type=r["type"],
@@ -1132,36 +1471,78 @@ class BackendRoutes:
         def create_depotbewegung(payload: SchemaDepotbewegung) -> None:
             db = DBHandler()
             try:
-                db.insert_depotbewegung(payload)
+                data = self._normalize_depotbewegung(payload.__dict__)
+                db.insert_depotbewegung(SimpleNamespace(**data))
+                self._invalidate_depotstand_from(
+                    db,
+                    user_id=data.get("user_id"),
+                    konto_id=data.get("konto_id"),
+                    securities_id=data.get("securities_id"),
+                    datum=data.get("datum"),
+                )
+                db.conn.commit()
             finally:
                 db.close()
+            ensure_depotstand_from_last(datetime.now(TZ))
 
         def update_depotbewegung(
                 depotbewegung_id: int,
                 payload: SchemaDepotbewegung) -> None:
             db = DBHandler()
             try:
-                ids = [r["id"] for r in db.load_depotbewegung()]
-                if depotbewegung_id not in ids:
-                    raise HTTPException(
-                        status_code=404, detail="Depotbewegung nicht gefunden")
-                db.update_depotbewegung(
-                    SimpleNamespace(id=depotbewegung_id, **payload.__dict__))
+                fields = [
+                    "user_id", "konto_id", "ausgangs_konto_id",
+                    "eingangs_konto_id", "securities_id", "kategorie_id",
+                    "type", "betrag", "anteile", "datum",
+                ]
+                ns = self._merge_for_update(
+                    db=db,
+                    table="depotbewegung",
+                    id_col="id",
+                    item_id=depotbewegung_id,
+                    payload_obj=payload,
+                    fields=fields,
+                    normalizer=self._normalize_depotbewegung,
+                )
+                db.update_depotbewegung(ns)
+                self._invalidate_depotstand_from(
+                    db,
+                    user_id=ns.user_id,
+                    konto_id=ns.konto_id,
+                    securities_id=ns.securities_id,
+                    datum=ns.datum,
+                )
+                db.conn.commit()
             finally:
                 db.close()
+            ensure_depotstand_from_last(datetime.now(TZ))
 
         def delete_depotbewegung(depotbewegung_id: int) -> None:
             db = DBHandler()
             try:
+                old = db.cursor.execute("""
+                    SELECT user_id, konto_id, securities_id, datum
+                    FROM depotbewegung
+                    WHERE id = ?
+                """, (depotbewegung_id,)).fetchone()
                 db.cursor.execute(
                     "DELETE FROM depotbewegung WHERE id = ?",
                     (depotbewegung_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
                         status_code=404, detail="Depotbewegung nicht gefunden")
+                if old:
+                    self._invalidate_depotstand_from(
+                        db,
+                        user_id=old["user_id"],
+                        konto_id=old["konto_id"],
+                        securities_id=old["securities_id"],
+                        datum=old["datum"],
+                    )
                 db.conn.commit()
             finally:
                 db.close()
+            ensure_depotstand_from_last(datetime.now(TZ))
 
         # ---- Depot Stand ----
         def get_depotstand() -> List[SchemaDepotstand]:
@@ -1284,4 +1665,5 @@ class BackendRoutes:
 
         self.router.include_router(opt_router)
         self.router.include_router(jobs)
+        self.router.include_router(portfolio)
         self.router.include_router(r_market)

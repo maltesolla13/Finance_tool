@@ -528,20 +528,24 @@ class DBHandler:
         Input
         -----
         depotbewegung: Ein Objekt mit Attribut
-            'user_id', 'konto_id', 'securities_id', 'kategorie_id', 'type',
-            'betrag', 'anteile', 'datum'
+            'user_id', 'konto_id', 'ausgangs_konto_id', 'eingangs_konto_id',
+            'securities_id', 'kategorie_id', 'type', 'betrag', 'anteile',
+            'datum'
 
         Response
         --------
         None
         """
         self.cursor.execute("""
-            INSERT INTO depotbewegung (user_id, konto_id, securities_id,
-                    kategorie_id, type, betrag, anteile, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO depotbewegung (
+                    user_id, konto_id, ausgangs_konto_id, eingangs_konto_id,
+                    securities_id, kategorie_id, type, betrag, anteile, datum)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             depotbewegung.user_id,
             depotbewegung.konto_id,
+            getattr(depotbewegung, "ausgangs_konto_id", None),
+            getattr(depotbewegung, "eingangs_konto_id", None),
             depotbewegung.securities_id,
             depotbewegung.kategorie_id,
             depotbewegung.type,
@@ -562,14 +566,47 @@ class DBHandler:
         Response
         --------
         List[Tuple[int, int, int, int, int, int float, float, str]]
-            Liste mit Tupeln (user_id, konto_id, securities_id, kategorie_id,
-                    type, betrag, anteile, datum) des depotbewegung
+            Liste mit Tupeln (user_id, konto_id, ausgangs_konto_id,
+                    eingangs_konto_id, securities_id, kategorie_id, type,
+                    betrag, anteile, datum) des depotbewegung
         """
-        self.cursor.execute("SELECT id, user_id, konto_id, securities_id,\
-                             kategorie_id, type, betrag, anteile,\
-                            datum FROM depotbewegung")
+        self.cursor.execute("SELECT id, user_id, konto_id,\
+                            ausgangs_konto_id, eingangs_konto_id,\
+                            securities_id, kategorie_id, type, betrag,\
+                            anteile, datum FROM depotbewegung")
         depotbewegung = self.cursor.fetchall()
         return depotbewegung
+
+    def update_depotbewegung(
+            self,
+            depotbewegung: SchemaDepotbewegung
+    ) -> None:
+        self.cursor.execute("""
+            UPDATE depotbewegung
+            SET user_id = ?,
+                konto_id = ?,
+                ausgangs_konto_id = ?,
+                eingangs_konto_id = ?,
+                securities_id = ?,
+                kategorie_id = ?,
+                type = ?,
+                betrag = ?,
+                anteile = ?,
+                datum = ?
+            WHERE id = ?
+        """, (
+            depotbewegung.user_id,
+            depotbewegung.konto_id,
+            getattr(depotbewegung, "ausgangs_konto_id", None),
+            getattr(depotbewegung, "eingangs_konto_id", None),
+            depotbewegung.securities_id,
+            depotbewegung.kategorie_id,
+            depotbewegung.type,
+            _num(depotbewegung.betrag),
+            _num(depotbewegung.anteile),
+            _dt(depotbewegung.datum),
+            depotbewegung.id,
+        ))
 
     def insert_depotstand(
             self,

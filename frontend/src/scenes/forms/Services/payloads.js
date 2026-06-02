@@ -83,6 +83,8 @@ export function toPayloadSavings({
 export const toPayloadDepotbewegung = ({
   userId,
   kontoId,
+  kontoOutId,
+  kontoInId,
   securityId,
   kategorieId,
   typ,
@@ -94,6 +96,8 @@ export const toPayloadDepotbewegung = ({
   return {
     user_id: userId,
     konto_id: kontoId,
+    ausgangs_konto_id: kontoOutId ?? null,
+    eingangs_konto_id: kontoInId ?? null,
     securities_id: securityId,
     kategorie_id: kategorieId,
     type: typ,

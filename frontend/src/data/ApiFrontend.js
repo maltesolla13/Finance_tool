@@ -149,6 +149,11 @@ export class ApiRequests {
     return this.api.delete(`/depotstand/${id}`);
   }
 
+  // Portfolio
+  portfolioSummary(params = {}) {
+    return this.api.get("/portfolio/summary", params);
+  }
+
   //Market API
   marketLow({ ticker, date }) {
     return this.api.get("/market/low", { ticker, date });
