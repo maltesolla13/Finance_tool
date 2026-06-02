@@ -178,6 +178,7 @@ function InstrumentPieChart({ data = [] }) {
 function LineChart({ series = [], height = 320, compact = false }) {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  const [hoveredIndex, setHoveredIndex] = useState(null);
   const width = 900;
   const chartHeight = compact ? 210 : height;
   const pad = compact
@@ -191,6 +192,7 @@ function LineChart({ series = [], height = 320, compact = false }) {
     xIndex: i,
     value: Number(d.value || 0),
     invested: Number(d.invested || 0),
+    shares: Number(d.shares ?? d.anteile ?? 0),
   }));
 
   if (!points.length) {
@@ -220,10 +222,28 @@ function LineChart({ series = [], height = 320, compact = false }) {
       .join(" ");
   const last = points[points.length - 1];
   const first = points[0];
+  const hovered = hoveredIndex === null ? null : points[hoveredIndex];
+  const tooltipW = compact ? 168 : 184;
+  const tooltipH = 72;
+  const tooltipX = hovered
+    ? Math.min(Math.max(xFor(hovered.xIndex) + 12, pad.left), width - pad.right - tooltipW)
+    : 0;
+  const tooltipY = hovered
+    ? Math.min(
+        Math.max(yFor(hovered.value) - tooltipH - 12, pad.top),
+        chartHeight - pad.bottom - tooltipH - 4
+      )
+    : 0;
+  const hoverBandW = points.length > 1 ? innerW / (points.length - 1) : innerW;
 
   return (
     <Box sx={{ width: "100%", overflow: "hidden" }}>
-      <svg viewBox={`0 0 ${width} ${chartHeight}`} width="100%" height={chartHeight}>
+      <svg
+        viewBox={`0 0 ${width} ${chartHeight}`}
+        width="100%"
+        height={chartHeight}
+        onMouseLeave={() => setHoveredIndex(null)}
+      >
         <line
           x1={pad.left}
           y1={pad.top}
@@ -276,6 +296,66 @@ function LineChart({ series = [], height = 320, compact = false }) {
         />
         <circle cx={xFor(last.xIndex)} cy={yFor(last.value)} r="4" fill={colors.greenAccent[400]} />
         <circle cx={xFor(last.xIndex)} cy={yFor(last.invested)} r="4" fill={colors.blueAccent[400]} />
+        {points.map((point, index) => (
+          <rect
+            key={`${point.date}-${index}`}
+            x={
+              points.length === 1
+                ? pad.left
+                : Math.max(pad.left, xFor(point.xIndex) - hoverBandW / 2)
+            }
+            y={pad.top}
+            width={
+              points.length === 1
+                ? innerW
+                : Math.min(hoverBandW, pad.left + innerW - Math.max(pad.left, xFor(point.xIndex) - hoverBandW / 2))
+            }
+            height={innerH}
+            fill="transparent"
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseMove={() => setHoveredIndex(index)}
+          />
+        ))}
+        {hovered && (
+          <g pointerEvents="none">
+            <line
+              x1={xFor(hovered.xIndex)}
+              y1={pad.top}
+              x2={xFor(hovered.xIndex)}
+              y2={pad.top + innerH}
+              stroke={colors.grey[300]}
+              strokeDasharray="4 4"
+              opacity="0.85"
+            />
+            <circle
+              cx={xFor(hovered.xIndex)}
+              cy={yFor(hovered.value)}
+              r="5"
+              fill={colors.greenAccent[400]}
+              stroke={colors.primary[500]}
+              strokeWidth="2"
+            />
+            <rect
+              x={tooltipX}
+              y={tooltipY}
+              width={tooltipW}
+              height={tooltipH}
+              rx="4"
+              fill={colors.primary[500]}
+              stroke={colors.grey[500]}
+              opacity="0.96"
+            />
+            <text x={tooltipX + 10} y={tooltipY + 20} fill={colors.grey[100]} fontSize="12">
+              Datum: {hovered.date}
+            </text>
+            <text x={tooltipX + 10} y={tooltipY + 40} fill={colors.grey[100]} fontSize="12">
+              Anteile: {fmtShares(hovered.shares)}
+            </text>
+            <text x={tooltipX + 10} y={tooltipY + 60} fill={colors.grey[100]} fontSize="12">
+              Wert: {fmtEuro(hovered.value)}
+            </text>
+          </g>
+        )}
         <text x={pad.left} y={chartHeight - 8} fill={colors.grey[300]} fontSize="12">
           {first.date}
         </text>

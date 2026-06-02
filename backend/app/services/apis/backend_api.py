@@ -533,20 +533,24 @@ class BackendRoutes:
 
                         total_invested = 0.0
                         total_value = 0.0
+                        total_shares = 0.0
                         for sec_id, values in running.items():
                             meta = asset_meta[sec_id]
                             sec_value = values["shares"] * price_for(
                                 meta["ticker"], d)
                             total_invested += values["invested"]
                             total_value += sec_value
+                            total_shares += values["shares"]
                             series_by_sec[sec_id].append({
                                 "date": d,
+                                "shares": values["shares"],
                                 "invested": values["invested"],
                                 "value": sec_value,
                             })
                         if not period_start or d >= period_start:
                             overview.append({
                                 "date": d,
+                                "shares": total_shares,
                                 "invested": total_invested,
                                 "value": total_value,
                             })
