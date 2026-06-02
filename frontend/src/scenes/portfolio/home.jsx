@@ -38,12 +38,20 @@ const euro = new Intl.NumberFormat("de-DE", {
   currency: "EUR",
 });
 
+const euroWhole = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 const percent = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 });
 
 const fmtEuro = (v) => euro.format(Number(v || 0));
+const fmtEuroWhole = (v) => euroWhole.format(Number(v || 0));
 const fmtPct = (v) => `${percent.format(Number(v || 0))} %`;
 const fmtShares = (v) =>
   new Intl.NumberFormat("de-DE", {
@@ -173,7 +181,7 @@ function LineChart({ series = [], height = 320, compact = false }) {
   const width = 900;
   const chartHeight = compact ? 210 : height;
   const pad = compact
-    ? { top: 18, right: 16, bottom: 30, left: 54 }
+    ? { top: 18, right: 16, bottom: 30, left: 80 }
     : { top: 22, right: 22, bottom: 42, left: 66 };
   const innerW = width - pad.left - pad.right;
   const innerH = chartHeight - pad.top - pad.bottom;
@@ -249,7 +257,7 @@ function LineChart({ series = [], height = 320, compact = false }) {
                 fill={colors.grey[300]}
                 fontSize="12"
               >
-                {fmtEuro(maxY * t)}
+                {fmtEuroWhole(maxY * t)}
               </text>
             </g>
           );
