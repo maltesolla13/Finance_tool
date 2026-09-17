@@ -5,6 +5,7 @@ import calendar
 import re
 
 from backend.app.database.db_handling import DBHandler
+from backend.app.services.depot.trade_amounts import cash_change
 from backend.app.models.schema import (
     SchemaKontobewegung,
     SchemaMonthlyCosts,
@@ -447,9 +448,9 @@ def mirror_depotbewegung_to_kontobewegung(only_for_date: date | None = None):
             ausgangs_konto_id = r["ausgangs_konto_id"]
             eingangs_konto_id = r["eingangs_konto_id"]
             kategorie_id = r["kategorie_id"]
-            type_ = r["type"]
+            type_ = (r["type"] or "").strip()
             betrag = r["betrag"]
-            datum = r["datum"]
+            datum = _to_date(r["datum"])
 
             if only_for_date:
                 if _to_date(datum) != _to_date(only_for_date):
@@ -473,7 +474,7 @@ def mirror_depotbewegung_to_kontobewegung(only_for_date: date | None = None):
                     eingangs_konto_id
                     or _map_depotkonto_to_cash_konto_id(db, depot_konto_id)
                 )
-                post_amount = Decimal(abs(amount))
+                post_amount = cash_change(r)
                 post_type = "Depot Verkauf"
             else:
                 # andere Typen ignorieren (z.B. Dividende o.ä. – falls

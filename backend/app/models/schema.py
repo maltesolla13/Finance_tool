@@ -90,6 +90,7 @@ class SchemaDepotbewegung:
     type: Optional[str] = None
     betrag: Optional[Decimal] = None
     anteile: Optional[Decimal] = None
+    gebuehr: Optional[Decimal] = None
     datum: Optional[date] = None
     id: Optional[int] = None
 

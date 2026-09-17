@@ -8,6 +8,7 @@ from threading import RLock
 
 from backend.app.database.db_handling import DBHandler
 from backend.app.services.apis.market_api import fetch_daily_lows_eur
+from backend.app.services.depot.trade_amounts import cash_change
 
 log = logging.getLogger(__name__)
 _rebuild_lock = RLock()
@@ -18,14 +19,15 @@ def _depot_delta(row):
     sign = POSITION_TYPES.get((row["type"] or "").strip().lower(), 0)
     return (
         sign * abs(Decimal(str(row["anteile"] or 0))),
-        sign * abs(Decimal(str(row["betrag"] or 0))),
+        -cash_change(row) if sign else Decimal(0),
     )
 
 
 def _read_transactions(conn):
     return [dict(row) for row in conn.execute("""
         SELECT d.id, d.user_id, d.konto_id, d.securities_id,
-               DATE(d.datum) AS day, d.type, d.betrag, d.anteile, s.ticker
+               DATE(d.datum) AS day, d.type, d.betrag, d.anteile,
+               d.gebuehr, s.ticker
         FROM depotbewegung d
         LEFT JOIN securities s ON s.id = d.securities_id
         ORDER BY d.id

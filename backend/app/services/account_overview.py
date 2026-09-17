@@ -4,6 +4,8 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 
+from backend.app.services.depot.trade_amounts import cash_change
+
 
 def account_overview(conn, account_id, today=None):
     """Read-only cash ledger, including sources not yet mirrored by jobs."""
@@ -63,7 +65,7 @@ def account_overview(conn, account_id, today=None):
             "verkauf", "dividende", "ausschüttung", "ertrag", "coupon"
         }:
             cash_account = row["eingangs_konto_id"] or row["konto_id"]
-            amount = abs(row["betrag"] or 0)
+            amount = cash_change(row)
             label = (
                 "Wertpapier Verkauf"
                 if side == "verkauf" else "Wertpapier Ertrag"
@@ -218,7 +220,7 @@ def _portfolio_values(conn, account_id, today, cash_history):
     purchases = Decimal(0)
     valued_returns = Decimal(0)
     for row in conn.execute("""
-        SELECT LOWER(TRIM(type)) AS kind, betrag, DATE(datum) AS day
+        SELECT *, LOWER(TRIM(type)) AS kind, DATE(datum) AS day
         FROM depotbewegung WHERE konto_id=? AND DATE(datum)<=?
     """, (account_id, today.isoformat())):
         amount = abs(Decimal(str(row["betrag"] or 0)))
@@ -228,7 +230,7 @@ def _portfolio_values(conn, account_id, today, cash_history):
         elif row["kind"] in {
             "verkauf", "dividende", "ausschüttung", "ertrag", "coupon"
         }:
-            change = amount
+            change = cash_change(row)
         else:
             continue
         # Match cash flows to the date of the stored portfolio valuation.

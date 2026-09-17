@@ -143,6 +143,11 @@ def init_db():
         cursor.execute(
             "ALTER TABLE depotbewegung ADD COLUMN eingangs_konto_id INTEGER"
         )
+    if "gebuehr" not in depotbewegung_cols:
+        cursor.execute(
+            "ALTER TABLE depotbewegung "
+            "ADD COLUMN gebuehr REAL NOT NULL DEFAULT 0"
+        )
     cursor.execute("""
         UPDATE depotbewegung
         SET ausgangs_konto_id = COALESCE(ausgangs_konto_id, konto_id),

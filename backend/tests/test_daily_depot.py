@@ -14,7 +14,8 @@ class DailyDepotTest(unittest.TestCase):
             CREATE TABLE securities (id INTEGER PRIMARY KEY, ticker TEXT);
             CREATE TABLE depotbewegung (
                 id INTEGER PRIMARY KEY, user_id INTEGER, konto_id INTEGER, securities_id INTEGER,
-                type TEXT, betrag REAL, anteile REAL, datum TEXT);
+                type TEXT, betrag REAL, anteile REAL, datum TEXT,
+                gebuehr REAL NOT NULL DEFAULT 0);
             CREATE TABLE depotstand (
                 id INTEGER PRIMARY KEY, user_id INTEGER, konto_id INTEGER, securities_id INTEGER,
                 summe_betrag REAL, summe_anteil REAL, wert REAL, entwicklung REAL, datum TEXT);

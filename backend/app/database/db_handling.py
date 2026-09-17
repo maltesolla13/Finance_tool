@@ -539,8 +539,9 @@ class DBHandler:
         self.cursor.execute("""
             INSERT INTO depotbewegung (
                     user_id, konto_id, ausgangs_konto_id, eingangs_konto_id,
-                    securities_id, kategorie_id, type, betrag, anteile, datum)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    securities_id, kategorie_id, type, betrag, anteile,
+                    datum, gebuehr)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             depotbewegung.user_id,
             depotbewegung.konto_id,
@@ -551,7 +552,8 @@ class DBHandler:
             depotbewegung.type,
             _num(depotbewegung.betrag),
             _num(depotbewegung.anteile),
-            _dt(depotbewegung.datum)
+            _dt(depotbewegung.datum),
+            _num(getattr(depotbewegung, "gebuehr", None) or 0),
         ))
 
     def load_depotbewegung(self) -> list[SchemaDepotbewegung]:
@@ -573,7 +575,7 @@ class DBHandler:
         self.cursor.execute("SELECT id, user_id, konto_id,\
                             ausgangs_konto_id, eingangs_konto_id,\
                             securities_id, kategorie_id, type, betrag,\
-                            anteile, datum FROM depotbewegung")
+                            anteile, datum, gebuehr FROM depotbewegung")
         depotbewegung = self.cursor.fetchall()
         return depotbewegung
 
@@ -592,7 +594,8 @@ class DBHandler:
                 type = ?,
                 betrag = ?,
                 anteile = ?,
-                datum = ?
+                datum = ?,
+                gebuehr = ?
             WHERE id = ?
         """, (
             depotbewegung.user_id,
@@ -605,6 +608,7 @@ class DBHandler:
             _num(depotbewegung.betrag),
             _num(depotbewegung.anteile),
             _dt(depotbewegung.datum),
+            _num(getattr(depotbewegung, "gebuehr", None) or 0),
             depotbewegung.id,
         ))
 

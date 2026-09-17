@@ -30,6 +30,7 @@ import * as DateUtils from "./Services/date.utils";
 import * as NumberUtils from "./Services/number.utils";
 import * as Payloads from "./Services/payloads";
 import { MarketService } from "./Services/market.service";
+import { calculateTrade } from "./Services/trade.utils";
 import {
   DualKontoAutocomplete,
   SecurityAutocomplete,
@@ -49,6 +50,7 @@ function validateDepotbewegung({
   betrag,
   anteile,
   datum,
+  typ,
 }) {
   if (!userId) return "Bitte User wählen.";
   if (!kontoOutId || !kontoInId)
@@ -60,6 +62,12 @@ function validateDepotbewegung({
   const shares = NumberUtils.toNumber(anteile);
   if (amount == null && shares == null)
     return "Bitte Betrag ODER Anteile angeben.";
+  if (amount != null && (!Number.isFinite(amount) || amount <= 0))
+    return "Bitte einen positiven Betrag angeben.";
+  if (shares != null && (!Number.isFinite(shares) || shares <= 0))
+    return "Bitte positive Anteile angeben.";
+  if (amount != null && (typ === "Kauf" ? amount <= 1 : amount < 1))
+    return "Der Betrag reicht nicht für die Bearbeitungsgebühr von 1 €.";
   return null;
 }
 
@@ -162,6 +170,15 @@ const BuySellSecurities = () => {
                 currency: "EUR",
               }).format(Number(r.betrag))
             : "",
+      },
+      {
+        key: "gebuehr",
+        label: "Gebühr (€)",
+        align: "right",
+        value: (r) =>
+          Number(r.gebuehr ?? 0)
+            .toFixed(2)
+            .replace(".", ","),
       },
       {
         key: "anteile",
@@ -334,19 +351,19 @@ const BuySellSecurities = () => {
           side: typ,
         });
         if (!active || !Number.isFinite(Number(p))) return;
-        // Nur berechnen, wenn genau EIN Feld gefüllt ist
         const hasBetrag = betrag !== "" && betrag != null;
         const hasAnteile = anteile !== "" && anteile != null;
-
-        if (hasAnteile && !hasBetrag) {
-          const total = Number(anteile) * Number(p);
-          setBetrag(total.toFixed(2));
-        } else if (hasBetrag && !hasAnteile && Number(p) > 0) {
-          const qty = Number(betrag) / Number(p);
-          setAnteile(qty.toFixed(6));
-        } else if (!hasBetrag && !hasAnteile && lastEdited) {
-          // Wenn Nutzer z.B. nur Quelle oder Datum ändert, NICHT überschreiben.
-        }
+        if (!hasBetrag && !hasAnteile) return;
+        const basis = lastEdited ?? (hasBetrag ? "betrag" : "anteile");
+        const preview = calculateTrade({
+          side: typ,
+          price: Number(p),
+          amount: NumberUtils.toNumber(betrag),
+          shares: NumberUtils.toNumber(anteile),
+          basis,
+        });
+        if (basis === "anteile") setBetrag(preview?.amount ?? "");
+        else setAnteile(preview?.shares ?? "");
       } catch (err) {
         console.warn("Preisabfrage fehlgeschlagen:", err);
       }
@@ -371,6 +388,7 @@ const BuySellSecurities = () => {
       betrag,
       anteile,
       datum,
+      typ,
     });
     if (validation) {
       setErr(validation);
@@ -385,8 +403,8 @@ const BuySellSecurities = () => {
       securityId,
       kategorieId,
       typ,
-      betrag,
-      anteile,
+      betrag: lastEdited === "anteile" ? null : betrag,
+      anteile: lastEdited === "anteile" ? anteile : null,
       datum,
     });
 
@@ -399,10 +417,11 @@ const BuySellSecurities = () => {
       // Reset nur Beträge/Anteile für schnellen Folge-Eintrag
       setBetrag("");
       setAnteile("");
+      setLastEdited(null);
       await loadRows();
     } catch (e) {
       console.warn(e);
-      setErr("Konnte Eintrag nicht speichern.");
+      setErr(e.message || "Konnte Eintrag nicht speichern.");
     } finally {
       setSubmitting(false);
     }
@@ -412,6 +431,7 @@ const BuySellSecurities = () => {
     setTyp("Kauf");
     setBetrag("");
     setAnteile("");
+    setLastEdited(null);
     setDatum(DateUtils.toISODate(new Date()));
   };
 
@@ -500,7 +520,9 @@ const BuySellSecurities = () => {
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
-                  label="Betrag (€)"
+                  label={
+                    typ === "Kauf" ? "Gesamtbetrag (€)" : "Verkaufserlös (€)"
+                  }
                   value={betrag}
                   onChange={(e) => {
                     setLastEdited("betrag");
@@ -509,7 +531,11 @@ const BuySellSecurities = () => {
                   fullWidth
                   inputMode="decimal"
                   placeholder="z. B. 250"
-                  helperText="Eins von beiden: Betrag ODER Anteile"
+                  helperText={
+                    typ === "Kauf"
+                      ? "Enthält 1 € Bearbeitungsgebühr."
+                      : "Vor Abzug von 1 € Bearbeitungsgebühr."
+                  }
                 />
                 <TextField
                   label="Anteile (Stück)"
@@ -523,6 +549,21 @@ const BuySellSecurities = () => {
                   placeholder="z. B. 1.5"
                 />
               </Stack>
+
+              <Typography variant="body2" color="text.secondary">
+                Bearbeitungsgebühr: 1,00 €.
+                {NumberUtils.toNumber(betrag) >= 1 && (
+                  <>
+                    {" "}
+                    {typ === "Kauf" ? "Investiert" : "Auszahlung"}:{" "}
+                    {new Intl.NumberFormat("de-DE", {
+                      style: "currency",
+                      currency: "EUR",
+                    }).format(NumberUtils.toNumber(betrag) - 1)}
+                    .
+                  </>
+                )}
+              </Typography>
 
               <TextField
                 label="Datum"

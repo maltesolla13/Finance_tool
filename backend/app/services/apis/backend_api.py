@@ -10,6 +10,7 @@ from backend.app.services.depot.daily_jobs import (
 from backend.app.services.depot.monthly_jobs import (
     refresh_monthly_securities, run_monthly_securities_jobs,
 )
+from backend.app.services.depot.trade_amounts import cash_change, prepare_trade
 from backend.app.services.jobs.monthly_and_depot_posting import (
     _backfill_monthlycost_executions_until,
     _first_due_after,
@@ -492,7 +493,8 @@ class BackendRoutes:
                 account_params = tuple(selected_ids)
                 movement_rows = db.cursor.execute(f"""
                     SELECT db.user_id, db.konto_id, db.securities_id,
-                           db.type, db.betrag, db.anteile, DATE(db.datum) AS d,
+                           db.type, db.betrag, db.anteile, db.gebuehr,
+                           DATE(db.datum) AS d,
                            s.name, s.instrument, s.ticker, s.isin
                     FROM depotbewegung db
                     JOIN securities s ON s.id = db.securities_id
@@ -534,7 +536,7 @@ class BackendRoutes:
                     type_name = (r["type"] or "").strip().lower()
                     sign = -1 if type_name == "verkauf" else 1
                     state[sec_id]["shares"] += sign * float(r["anteile"] or 0)
-                    state[sec_id]["invested"] += sign * float(r["betrag"] or 0)
+                    state[sec_id]["invested"] -= float(cash_change(r))
                     if r["d"] not in dates:
                         dates.append(r["d"])
 
@@ -564,8 +566,8 @@ class BackendRoutes:
                             sign = -1 if type_name == "verkauf" else 1
                             running[sec_id]["shares"] += sign * float(
                                 r["anteile"] or 0)
-                            running[sec_id]["invested"] += sign * float(
-                                r["betrag"] or 0)
+                            running[sec_id]["invested"] -= float(
+                                cash_change(r))
 
                         total_invested = 0.0
                         total_value = 0.0
@@ -1513,6 +1515,7 @@ class BackendRoutes:
                         type=r["type"],
                         betrag=r["betrag"],
                         anteile=r["anteile"],
+                        gebuehr=r["gebuehr"],
                         datum=r["datum"]
                     )
                     for r in rows
@@ -1524,6 +1527,7 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 data = self._normalize_depotbewegung(payload.__dict__)
+                data = prepare_trade(db.conn, data, payload.__dict__)
                 db.insert_depotbewegung(SimpleNamespace(**data))
                 db.conn.commit()
             finally:
@@ -1537,8 +1541,12 @@ class BackendRoutes:
                 fields = [
                     "user_id", "konto_id", "ausgangs_konto_id",
                     "eingangs_konto_id", "securities_id", "kategorie_id",
-                    "type", "betrag", "anteile", "datum",
+                    "type", "betrag", "anteile", "datum", "gebuehr",
                 ]
+                previous = db.cursor.execute(
+                    "SELECT * FROM depotbewegung WHERE id=?",
+                    (depotbewegung_id,),
+                ).fetchone()
                 ns = self._merge_for_update(
                     db=db,
                     table="depotbewegung",
@@ -1548,7 +1556,10 @@ class BackendRoutes:
                     fields=fields,
                     normalizer=self._normalize_depotbewegung,
                 )
-                db.update_depotbewegung(ns)
+                data = prepare_trade(
+                    db.conn, ns.__dict__, payload.__dict__, previous
+                )
+                db.update_depotbewegung(SimpleNamespace(**data))
                 db.conn.commit()
             finally:
                 db.close()

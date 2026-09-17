@@ -11,6 +11,11 @@ from backend.app.models.schema import SchemaDepotbewegung, SchemaMonthlyCosts
 from backend.app.services.apis.backend_api import BackendRoutes
 from backend.app.services.apis.market_api import fetch_daily_lows_eur
 from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
+from backend.app.services.depot.daily_jobs import ensure_depotstand_from_last
+from backend.app.services.account_overview import account_overview
+from backend.app.services.jobs.monthly_and_depot_posting import (
+    mirror_depotbewegung_to_kontobewegung,
+)
 from backend.app.services.jobs.monthly_and_depot_posting import run_monthlycosts_for_date
 
 
@@ -58,6 +63,13 @@ class SavingsPlanDepotTest(unittest.TestCase):
         connection_patch.start()
         self.addCleanup(connection_patch.stop)
         self.addCleanup(lambda: sqlite3.Connection.close(self.conn))
+        for name in ("fetch_low_on_or_after", "fetch_high_on_or_after"):
+            quote_patch = patch(
+                "backend.app.services.depot.trade_amounts." + name,
+                return_value=100,
+            )
+            quote_patch.start()
+            self.addCleanup(quote_patch.stop)
 
     def plan(self, plan_id):
         self.conn.execute("""
@@ -125,7 +137,97 @@ class SavingsPlanDepotTest(unittest.TestCase):
         endpoint("PUT", "/depotbewegung/{item_id}")(
             movement_id, SchemaDepotbewegung(anteile=3, betrag=300), tasks,
         )
-        self.assertEqual(self.conn.execute("SELECT anteile FROM depotbewegung").fetchone()[0], 3)
+        self.assertEqual(self.conn.execute("SELECT anteile FROM depotbewegung").fetchone()[0], 2.99)
         endpoint("DELETE", "/depotbewegung/{item_id}")(movement_id, tasks)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM depotbewegung").fetchone()[0], 0)
         self.assertEqual([task.func.__name__ for task in tasks.tasks], ["refresh_depotstand"] * 3)
+
+    def book(self, kind, amount=None, shares=None):
+        routes = BackendRoutes().router.routes
+        create = next(
+            r.endpoint for r in routes
+            if r.path == "/depotbewegung" and "POST" in r.methods
+        )
+        sale = kind == "Verkauf"
+        create(SchemaDepotbewegung(
+            user_id=1, konto_id=2, ausgangs_konto_id=2 if sale else 1,
+            eingangs_konto_id=1 if sale else 2, securities_id=1,
+            type=kind, betrag=amount, anteile=shares,
+            datum=date(2026, 1, 1),
+        ), BackgroundTasks())
+        return self.conn.execute(
+            "SELECT * FROM depotbewegung ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+    def test_trade_fee_reduces_purchase_shares_and_sale_payout(self):
+        buy = self.book("Kauf", amount=80)
+        sale = self.book("Verkauf", amount=80)
+        self.assertEqual((buy["betrag"], buy["anteile"]), (80, 0.79))
+        self.assertEqual((sale["betrag"], sale["anteile"]), (80, 0.8))
+        self.assertEqual(buy["gebuehr"], 1)
+        self.assertEqual(sale["gebuehr"], 1)
+        overview = account_overview(self.conn, 1, date(2026, 1, 1))
+        self.assertEqual(overview["balance"], -1)
+        self.assertEqual(overview["income"], 79)
+        self.assertEqual(overview["expenses"], -80)
+        mirror_depotbewegung_to_kontobewegung()
+        mirror_depotbewegung_to_kontobewegung()
+        mirrored = account_overview(self.conn, 1, date(2026, 1, 1))
+        self.assertEqual(mirrored["balance"], -1)
+        self.assertEqual(len(mirrored["transactions"]), 2)
+
+    def test_share_input_adds_fee_to_buy_budget_only(self):
+        buy = self.book("Kauf", shares=0.8)
+        sale = self.book("Verkauf", shares=0.8)
+        self.assertEqual(buy["betrag"], 81)
+        self.assertEqual(sale["betrag"], 80)
+        self.assertEqual(buy["anteile"], 0.8)
+        self.assertEqual(sale["anteile"], 0.8)
+
+    def test_savings_plan_has_no_fee(self):
+        plan = self.book("Sparplan", amount=80, shares=0.8)
+        self.assertEqual(plan["betrag"], 80)
+        self.assertEqual(plan["anteile"], 0.8)
+        self.assertEqual(plan["gebuehr"], 0)
+
+    def test_daily_and_account_profit_include_both_trade_fees(self):
+        self.book("Kauf", amount=80)
+        self.book("Verkauf", amount=79)
+        with patch(
+            "backend.app.services.depot.daily_jobs.fetch_daily_lows_eur"
+        ) as prices:
+            ensure_depotstand_from_last(date(2026, 1, 1))
+            prices.assert_not_called()
+        row = self.conn.execute("SELECT * FROM depotstand").fetchone()
+        self.assertEqual(row["summe_anteil"], 0)
+        self.assertEqual(row["summe_betrag"], 2)
+        self.assertEqual(row["entwicklung"], -2)
+        overview = account_overview(self.conn, 2, date(2026, 1, 1))
+        self.assertEqual(overview["purchase_value"], 80)
+        self.assertEqual(overview["portfolio_profit"], -2)
+
+    def test_repeated_update_does_not_charge_fee_again(self):
+        buy = self.book("Kauf", amount=80)
+        update = next(
+            r.endpoint for r in BackendRoutes().router.routes
+            if r.path == "/depotbewegung/{item_id}" and "PUT" in r.methods
+        )
+        for _ in range(2):
+            update(buy["id"], SchemaDepotbewegung(
+                betrag=80, anteile=0.79,
+            ), BackgroundTasks())
+        row = self.conn.execute("SELECT * FROM depotbewegung").fetchone()
+        self.assertEqual(row["betrag"], 80)
+        self.assertEqual(row["anteile"], 0.79)
+        self.assertEqual(row["gebuehr"], 1)
+
+    def test_too_small_budget_is_not_booked(self):
+        from fastapi import HTTPException
+
+        for kind, amount in (("Kauf", 1), ("Verkauf", 0.5)):
+            with self.subTest(kind=kind), self.assertRaises(HTTPException):
+                self.book(kind, amount=amount)
+        count = self.conn.execute(
+            "SELECT COUNT(*) FROM depotbewegung"
+        ).fetchone()[0]
+        self.assertEqual(count, 0)
