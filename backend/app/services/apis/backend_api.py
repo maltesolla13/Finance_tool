@@ -17,6 +17,8 @@ from backend.app.services.jobs.monthly_and_depot_posting import (
 from backend.app.services.jobs.savings_execution import (
     recalc_all_savings, recalc_savings)
 from backend.app.database.db_handling import DBHandler
+from backend.app.services.account_users import list_accounts, save_account, resolve_payload_user
+from backend.app.services.account_overview import account_overview
 from backend.app.services.apis.market_api import (
     fetch_high_on_or_after, fetch_low_on_or_after, fetch_low_on_or_before
 )
@@ -87,14 +89,30 @@ class BackendRoutes:
 
         # POST /{name}
         @r.post("", status_code=201)
-        def create_item(payload: Any):
+        def create_item(payload: dto_in):
+            if name in {"receipt", "savings", "kontobewegung", "depotbewegung",
+                        "depotstand", "monthlycosts", "monthlycosts_execution",
+                        "savings_execution"}:
+                db = DBHandler()
+                try:
+                    payload = resolve_payload_user(db.conn, name, payload)
+                finally:
+                    db.close()
             create_fn(payload)
             return {"ok": True}
         create_item.__annotations__["payload"] = dto_in
 
         # PUT /{name}/{item_id}
         @r.put("/{item_id}")
-        def update_item(item_id: int, payload: Any):
+        def update_item(item_id: int, payload: dto_in):
+            if name in {"receipt", "savings", "kontobewegung", "depotbewegung",
+                        "depotstand", "monthlycosts", "monthlycosts_execution",
+                        "savings_execution"}:
+                db = DBHandler()
+                try:
+                    payload = resolve_payload_user(db.conn, name, payload, item_id)
+                finally:
+                    db.close()
             update_fn(item_id, payload)
             return {"ok": True}
         update_item.__annotations__["payload"] = dto_in
@@ -278,6 +296,14 @@ class BackendRoutes:
 
     # ---- Request/Route-Definitionen -----------------------------------------
     def request_handling(self) -> None:
+        @self.router.get("/accounts/{account_id}/summary", tags=["Konten"])
+        def get_account_summary(account_id: int):
+            db = DBHandler()
+            try:
+                return account_overview(db.conn, account_id, datetime.now(TZ).date())
+            finally:
+                db.close()
+
         opt_router = APIRouter(prefix="/options", tags=["Options"])
 
         @opt_router.get("", response_model=List[SchemaOption])
@@ -669,16 +695,14 @@ class BackendRoutes:
         def get_konto() -> List[SchemaKonto]:
             db = DBHandler()
             try:
-                rows = db.load_konten()
-                return [SchemaKonto(id=row["id"], name=row["name"])
-                        for row in rows]
+                return [SchemaKonto(**account) for account in list_accounts(db.conn)]
             finally:
                 db.close()
 
         def create_konto(payload: SchemaKonto) -> None:
             db = DBHandler()
             try:
-                db.insert_konto(SimpleNamespace(name=payload.name))
+                save_account(db.conn, payload.name, payload.user_ids)
             finally:
                 db.close()
 
@@ -689,8 +713,7 @@ class BackendRoutes:
                 if konto_id not in ids:
                     raise HTTPException(status_code=404,
                                         detail="Konto not found")
-                db.update_konto(SimpleNamespace(
-                    id=konto_id, name=payload.name))
+                save_account(db.conn, payload.name, payload.user_ids, konto_id)
             finally:
                 db.close()
 
@@ -741,6 +764,10 @@ class BackendRoutes:
         def delete_user(user_id: int) -> None:
             db = DBHandler()
             try:
+                if db.cursor.execute(
+                    "SELECT 1 FROM konto_user WHERE user_id=? LIMIT 1", (user_id,)
+                ).fetchone():
+                    raise HTTPException(409, "Bitte zuerst die Konten dieses Users neu zuordnen.")
                 db.cursor.execute("DELETE FROM user WHERE id=?", (user_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(

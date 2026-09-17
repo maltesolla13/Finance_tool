@@ -1,7 +1,7 @@
 from decimal import Decimal
 from pydantic.dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -14,6 +14,7 @@ class SchemaOption:
 class SchemaKonto:
     name: Optional[str] = None
     id: Optional[int] = None
+    user_ids: Optional[List[int]] = None
 
 
 @dataclass

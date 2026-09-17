@@ -5,6 +5,7 @@ import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
 import AddAccount from "./scenes/forms/addaccounts";
+import Accounts from "./scenes/accounts";
 import AddReceipt from "./scenes/forms/addreceipt";
 import AddUser from "./scenes/forms/adduser";
 import AddSecurities from "./scenes/forms/addsecurities";
@@ -42,8 +43,11 @@ function App() {
               />
               <Route path="/forms/addsecurities" element={<AddSecurities />} />
               <Route path="/forms/addsavings" element={<AddSavings />} />
-              <Route path="/forms/buysellsecurities" element={<BuySellSecurities />} />
-              {/* <Route path="/accounts" element={<Account/>}/> />*/}
+              <Route
+                path="/forms/buysellsecurities"
+                element={<BuySellSecurities />}
+              />
+              <Route path="/accounts" element={<Accounts />} />
               <Route path="/portfolio" element={<Portfolio />} />
               {/* <Route path="/monthlycost" element={<MonthlyCost/>}/> />*/}
               {/* <Route path="/savings" element={<Distribution/>}/> />*/}

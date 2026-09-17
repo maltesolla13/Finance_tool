@@ -1,3 +1,4 @@
+import AccountUserField from "./Services/AccountUserField";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
@@ -15,6 +16,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   ToggleButtonGroup,
   ToggleButton,
 } from "@mui/material";
@@ -29,7 +31,6 @@ import * as NumberUtils from "./Services/number.utils";
 import * as Payloads from "./Services/payloads";
 import { MarketService } from "./Services/market.service";
 import {
-  UserAutocomplete,
   DualKontoAutocomplete,
   SecurityAutocomplete,
   KategorieAutocomplete,
@@ -90,7 +91,7 @@ const BuySellSecurities = () => {
   const [securityId, setSecurityId] = useState(null);
   const [kategorieId, setKategorieId] = useState(null);
 
-  const [inputUser, setInputUser] = useState("");
+  const inputUser = "";
   const [inputKontoOut, setInputKontoOut] = useState("");
   const [inputKontoIn, setInputKontoIn] = useState("");
   const [inputSec, setInputSec] = useState("");
@@ -109,6 +110,99 @@ const BuySellSecurities = () => {
   // Movements table
   const [rows, setRows] = useState([]);
   const [loadingRows, setLoadingRows] = useState(false);
+  const [columnFilters, setColumnFilters] = useState({});
+  const [dateOrder, setDateOrder] = useState("desc");
+
+  const columns = useMemo(
+    () => [
+      {
+        key: "datum",
+        label: "Datum",
+        value: (r) => DateUtils.formatDateDE(r.datum),
+      },
+      { key: "type", label: "Typ", value: (r) => r.type ?? "" },
+      {
+        key: "security",
+        label: "Wertpapier",
+        value: (r) =>
+          secsById[r.securities_id] ?? r.security_name ?? r.securities_id ?? "",
+      },
+      {
+        key: "category",
+        label: "Kategorie",
+        value: (r) =>
+          catsById[r.kategorie_id] ?? r.kategorie_name ?? r.kategorie_id ?? "",
+      },
+      {
+        key: "out",
+        label: "Ausgangskonto",
+        value: (r) =>
+          kontenById[r.ausgangs_konto_id] ??
+          r.ausgangs_konto_name ??
+          r.ausgangs_konto_id ??
+          "",
+      },
+      {
+        key: "in",
+        label: "Eingangskonto",
+        value: (r) =>
+          kontenById[r.eingangs_konto_id] ??
+          r.eingangs_konto_name ??
+          r.eingangs_konto_id ??
+          "",
+      },
+      {
+        key: "betrag",
+        label: "Betrag (\u20ac)",
+        align: "right",
+        value: (r) =>
+          r.betrag != null
+            ? new Intl.NumberFormat("de-DE", {
+                style: "currency",
+                currency: "EUR",
+              }).format(Number(r.betrag))
+            : "",
+      },
+      {
+        key: "anteile",
+        label: "Anteile",
+        align: "right",
+        value: (r) => r.anteile ?? "",
+      },
+    ],
+    [secsById, catsById, kontenById],
+  );
+
+  const visibleRows = useMemo(() => {
+    const normalize = (value) =>
+      String(value ?? "")
+        .trim()
+        .toLocaleLowerCase("de-DE");
+    return rows
+      .filter((row) =>
+        columns.every((column) => {
+          const query = normalize(columnFilters[column.key]);
+          const values = [column.value(row)];
+          if (column.key === "datum") values.push(row.datum);
+          if (column.key === "betrag" || column.key === "anteile") {
+            values.push(
+              row[column.key],
+              String(row[column.key] ?? "").replace(".", ","),
+            );
+          }
+          return (
+            !query || values.some((value) => normalize(value).includes(query))
+          );
+        }),
+      )
+      .sort((a, b) => {
+        const aTime = Date.parse(a.datum);
+        const bTime = Date.parse(b.datum);
+        if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : 0;
+        if (!Number.isFinite(bTime)) return -1;
+        return dateOrder === "desc" ? bTime - aTime : aTime - bTime;
+      });
+  }, [rows, columns, columnFilters, dateOrder]);
 
   // Filter für Tabelle (default: aktueller Monat)
   const [from, to] = DateUtils.currentMonthRange(new Date());
@@ -117,7 +211,7 @@ const BuySellSecurities = () => {
 
   const optService = useMemo(
     () => new OptionsService(api, { debounceMs: 200 }),
-    [api]
+    [api],
   );
 
   const refreshOptions = useCallback(
@@ -131,7 +225,7 @@ const BuySellSecurities = () => {
         setLoadingOpts(true);
         const { options, maps } = await optService.refresh(
           { users, konten, cats, laden: "" },
-          true // securities mit laden
+          true, // securities mit laden
         );
         setOptUsers(options.users ?? []);
         setOptKonten(options.konten ?? []);
@@ -146,7 +240,7 @@ const BuySellSecurities = () => {
         setLoadingOpts(false);
       }
     },
-    [optService, inputUser, inputSec, inputCat]
+    [optService, inputUser, inputSec, inputCat],
   );
 
   const depotKontoId = useMemo(() => {
@@ -161,7 +255,7 @@ const BuySellSecurities = () => {
   // Hole den ausgewählten Security-Option-Eintrag (mit ticker)
   const selectedSec = useMemo(
     () => optSecs.find((o) => (o?.id ?? o?.value) === securityId) ?? null,
-    [optSecs, securityId]
+    [optSecs, securityId],
   );
   const ticker =
     selectedSec?.ticker || selectedSec?.symbol || selectedSec?.name;
@@ -193,12 +287,7 @@ const BuySellSecurities = () => {
       });
     }, 250);
     return () => clearTimeout(id);
-  }, [
-    inputUser,
-    inputSec,
-    inputCat,
-    refreshOptions,
-  ]);
+  }, [inputUser, inputSec, inputCat, refreshOptions]);
 
   const loadRows = useCallback(async () => {
     setLoadingRows(true);
@@ -331,23 +420,21 @@ const BuySellSecurities = () => {
         subtitle="Erfasse Käufe und Verkäufe; Einträge erscheinen unten in der Depotbewegung"
       />
 
-      <Grid container spacing={2}>
+      <Grid container spacing={3} alignItems="flex-start">
         {/* Eingabeformular */}
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 2 }}>
+        <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
             {submitting && <LinearProgress />}
             <Stack spacing={2} component="form" onSubmit={onSubmit}>
               {err && <Alert severity="error">{err}</Alert>}
               {okMsg && <Alert severity="success">{okMsg}</Alert>}
-
-              <UserAutocomplete
-                options={optUsers}
-                valueId={userId}
-                inputValue={inputUser}
-                onInputChange={setInputUser}
-                onSelectId={setUserId}
-                loading={loadingOpts}
-              />
 
               <DualKontoAutocomplete
                 options={optKonten}
@@ -362,6 +449,14 @@ const BuySellSecurities = () => {
                 loading={loadingOpts}
                 errorOut={!kontoOutId}
                 errorIn={!kontoInId}
+              />
+              <AccountUserField
+                accounts={optKonten}
+                users={optUsers}
+                accountIds={[kontoOutId, kontoInId]}
+                valueId={userId}
+                onSelectId={setUserId}
+                loading={loadingOpts}
               />
 
               <SecurityAutocomplete
@@ -453,8 +548,15 @@ const BuySellSecurities = () => {
         </Grid>
 
         {/* Tabelle */}
-        <Grid item xs={12} md={7}>
-          <Paper sx={{ p: 2 }}>
+        <Grid size={{ xs: 12, lg: 7 }} sx={{ minWidth: 0 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
             <Stack spacing={2}>
               <Typography variant="h6">Depotbewegung</Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -487,56 +589,64 @@ const BuySellSecurities = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Datum</TableCell>
-                      <TableCell>Typ</TableCell>
-                      <TableCell>Wertpapier</TableCell>
-                      <TableCell>Kategorie</TableCell>
-                      <TableCell>Ausgangskonto</TableCell>
-                      <TableCell>Eingangskonto</TableCell>
-                      <TableCell align="right">Betrag (€)</TableCell>
-                      <TableCell align="right">Anteile</TableCell>
+                      {columns.map((column) => (
+                        <TableCell
+                          key={column.key}
+                          align={column.align}
+                          sortDirection={
+                            column.key === "datum" ? dateOrder : false
+                          }
+                        >
+                          {column.key === "datum" ? (
+                            <TableSortLabel
+                              active
+                              direction={dateOrder}
+                              onClick={() =>
+                                setDateOrder((order) =>
+                                  order === "desc" ? "asc" : "desc",
+                                )
+                              }
+                            >
+                              {column.label}
+                            </TableSortLabel>
+                          ) : (
+                            column.label
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow>
+                      {columns.map((column) => (
+                        <TableCell key={column.key}>
+                          <TextField
+                            size="small"
+                            placeholder="Filtern..."
+                            value={columnFilters[column.key] ?? ""}
+                            onChange={(event) =>
+                              setColumnFilters((filters) => ({
+                                ...filters,
+                                [column.key]: event.target.value,
+                              }))
+                            }
+                            inputProps={{
+                              "aria-label": column.label + " filtern",
+                            }}
+                            sx={{ minWidth: 110 }}
+                            fullWidth
+                          />
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {rows?.length ? (
-                      rows.map((r) => (
+                    {visibleRows.length ? (
+                      visibleRows.map((r) => (
                         <TableRow key={r.id} hover>
-                          <TableCell>
-                            {DateUtils.formatDateDE(r.datum)}
-                          </TableCell>
-                          <TableCell>{r.type}</TableCell>
-                          <TableCell>
-                            {secsById[r.securities_id] ??
-                              r.security_name ??
-                              r.securities_id}
-                          </TableCell>
-                          <TableCell>
-                            {catsById[r.kategorie_id] ??
-                              r.kategorie_name ??
-                              r.kategorie_id ??
-                              ""}
-                          </TableCell>
-                          <TableCell>
-                            {kontenById[r.ausgangs_konto_id] ??
-                              r.ausgangs_konto_name ??
-                              r.ausgangs_konto_id ??
-                              ""}
-                          </TableCell>
-                          <TableCell>
-                            {kontenById[r.eingangs_konto_id] ??
-                              r.eingangs_konto_name ??
-                              r.eingangs_konto_id ??
-                              ""}
-                          </TableCell>
-                          <TableCell align="right">
-                            {r.betrag != null
-                              ? new Intl.NumberFormat("de-DE", {
-                                  style: "currency",
-                                  currency: "EUR",
-                                }).format(Number(r.betrag))
-                              : ""}
-                          </TableCell>
-                          <TableCell align="right">{r.anteile ?? ""}</TableCell>
+                          {columns.map((column) => (
+                            <TableCell key={column.key} align={column.align}>
+                              {column.value(r)}
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))
                     ) : (

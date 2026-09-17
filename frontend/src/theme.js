@@ -142,6 +142,7 @@ export const themeSettings = (mode) => {
             },
             background: {
               default: colors.primary[500],
+              paper: colors.primary[400],
             },
           }
         : {
@@ -159,8 +160,34 @@ export const themeSettings = (mode) => {
             },
             background: {
               default: "#fcfcfc",
+              paper: colors.primary[400],
             },
           }),
+    },
+    components: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: "none" } } },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: colors.grey[400],
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: colors.blueAccent[400],
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: colors.greenAccent[400],
+            },
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            "&.Mui-focused": { color: colors.greenAccent[400] },
+          },
+        },
+      },
     },
     typography: {
       fontFamily: ["Source Sans Pro", "sans-serif"].join(","),
@@ -206,7 +233,7 @@ export const useMode = () => {
       toggleColorMode: () =>
         setMode((prev) => (prev === "light" ? "dark" : "light")),
     }),
-    []
+    [],
   );
 
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);

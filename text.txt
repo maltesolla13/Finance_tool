@@ -16,3 +16,9 @@ ausgewähltne konten zusammen angezeigt werden
 - Abschließend kommt für jede Anlage ein diagramm mit der entwicklung über den oben gewählten zeitraum, mit rechts davon Anteile,
     Wert (in €), Einkaufspreis(in €), Aktiver Sparplan(in €) und Sparplanausführung datum. wichtig jede anlage hat die Namen über dem diagramm.
     es können immer zwei nebeneinander dargestellt werden.
+
+
+warum habe ich 2023-02-23 und dann als nächsten zeitpunkt 2025-11-02? da feheln ja drei jahre an daten dazwischen?
+ich möchte eigentlich, dass täglich dargestellt wird und nicht in so großen zeiträumen? also sollte zb bei NVIDI
+bis zum 2025-11-02 für alle Tage 0 angezeigt werden, dann 14,.. und dann ab dem 12-02 soll 27,.. angzeigt werden
+und das soll immer senkrecht an dem tag hoch gehen und nicht wie aktuell eine schräge sein

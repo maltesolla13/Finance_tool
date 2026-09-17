@@ -14,8 +14,8 @@ export class OptionsService {
   async refresh(q = {}, includeSecurities = false) {
     const queries = { users: "", konten: "", cats: "", laden: "", ...q };
     const [users, konten, cats, shops, secs = []] = await Promise.all([
-      this.api.searchOptions("users", queries.users || ""),
-      this.api.searchOptions("konten", queries.konten || ""),
+      this.api.listUsers(),
+      this.api.listKonten(),
       this.api.searchOptions("kategorien", queries.cats || ""),
       this.api.searchOptions("laden", queries.laden || ""),
       includeSecurities
@@ -39,6 +39,10 @@ export class OptionsService {
       securitiesById: mapById(options.securities),
     };
     return { options, maps };
+  }
+
+  refreshOptions(q = {}, includeSecurities = false) {
+    return this.refresh(q, includeSecurities);
   }
 
   ensureKategorie(name) {

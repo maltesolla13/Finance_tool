@@ -1,3 +1,4 @@
+import AccountUserField from "./Services/AccountUserField";
 import {
   useEffect,
   useMemo,
@@ -34,7 +35,6 @@ import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
 import {
-  UserAutocomplete,
   KontoAutocomplete,
   KategorieAutocomplete,
 } from "./Services/autocomplete";
@@ -64,7 +64,7 @@ export default function AddSavings() {
   const [optKonten, setOptKonten] = useState([]);
   const [optCats, setOptCats] = useState([]);
 
-  const [inputUser, setInputUser] = useState("");
+  const inputUser = "";
   const [inputKonto, setInputKonto] = useState("");
   const [inputCat, setInputCat] = useState("");
   const [loadingOpts, setLoadingOpts] = useState(false);
@@ -271,20 +271,20 @@ export default function AddSavings() {
                   required
                 />
 
-                <UserAutocomplete
-                  options={optUsers}
-                  valueId={userId}
-                  inputValue={inputUser}
-                  onInputChange={setInputUser}
-                  onSelectId={setUserId}
-                />
-
                 <KontoAutocomplete
                   options={optKonten}
                   valueId={kontoId}
                   inputValue={inputKonto}
                   onInputChange={setInputKonto}
                   onSelectId={setKontoId}
+                />
+                <AccountUserField
+                  accounts={optKonten}
+                  users={optUsers}
+                  accountIds={[kontoId]}
+                  valueId={userId}
+                  onSelectId={setUserId}
+                  loading={loadingOpts}
                 />
 
                 <KategorieAutocomplete

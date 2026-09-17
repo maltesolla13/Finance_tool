@@ -323,5 +323,7 @@ def init_db():
     )
     """)
 
+    from backend.app.services.account_users import init_account_users
+    init_account_users(conn)
     conn.commit()
     conn.close()

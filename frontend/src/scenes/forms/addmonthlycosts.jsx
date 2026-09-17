@@ -1,3 +1,4 @@
+import AccountUserField from "./Services/AccountUserField";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
@@ -45,7 +46,6 @@ import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
 import {
-  UserAutocomplete,
   DualKontoAutocomplete,
   KategorieAutocomplete,
   SecurityAutocomplete,
@@ -117,7 +117,7 @@ export default function AddMonthlyCosts() {
   const [optKonten, setOptKonten] = useState([]);
   const [optCats, setOptCats] = useState([]);
   const [optSecurities, setOptSecurities] = useState([]);
-  const [inputUser, setInputUser] = useState("");
+  const inputUser = "";
   const [inputCat, setInputCat] = useState("");
   const [loadingOpts, setLoadingOpts] = useState(false);
 
@@ -420,14 +420,6 @@ export default function AddMonthlyCosts() {
                   required
                 />
 
-                <UserAutocomplete
-                  options={optUsers}
-                  valueId={userId}
-                  inputValue={inputUser}
-                  onInputChange={setInputUser}
-                  onSelectId={setUserId}
-                />
-
                 <DualKontoAutocomplete
                   options={optKonten}
                   outId={kontoOutId}
@@ -442,6 +434,14 @@ export default function AddMonthlyCosts() {
                   errorIn={!kontoOutId && !kontoInId}
                   helperTextOut="Mindestens eines der beiden Konto-Felder muss befüllt sein"
                   helperTextIn="Mindestens eines der beiden Konto-Felder muss befüllt sein"
+                  loading={loadingOpts}
+                />
+                <AccountUserField
+                  accounts={optKonten}
+                  users={optUsers}
+                  accountIds={[kontoOutId, kontoInId]}
+                  valueId={userId}
+                  onSelectId={setUserId}
                   loading={loadingOpts}
                 />
 

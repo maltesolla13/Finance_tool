@@ -3,7 +3,7 @@ import { ApiError } from "./ApiErrors";
 export class ApiClient {
   constructor(
     baseURL = "http://127.0.0.1:8000/financetool/api/v1",
-    getAuthToken
+    getAuthToken,
   ) {
     this.baseURL = baseURL;
     this.getAuthToken = getAuthToken;
@@ -28,7 +28,7 @@ export class ApiClient {
       signal,
       timeoutMs = 15000,
       withCredentials = true,
-    } = {}
+    } = {},
   ) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -72,7 +72,10 @@ export class ApiClient {
 
     if (!res.ok) {
       const msg =
-        (payload && (payload.message || payload.error)) ||
+        (payload &&
+          (payload.message ||
+            payload.error ||
+            (typeof payload.detail === "string" ? payload.detail : ""))) ||
         res.statusText ||
         "Request failed";
       throw new ApiError(msg, res.status, payload);

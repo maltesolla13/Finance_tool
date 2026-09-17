@@ -22,7 +22,7 @@ import EuroOutlinedIcon from "@mui/icons-material/EuroOutlined"; // Buy Sell Sec
 
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined"; //Portfolio
 
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined"; //Account
+import AccountsMenu from "./AccountsMenu";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined"; //Konto
 
 import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined"; //MonthlyCost
@@ -212,13 +212,7 @@ const Sidebar = () => {
             </SubMenu>
 
             {/* ACCOUNTS */}
-            <Item
-              title="Accounts"
-              to="/accounts"
-              icon={<AccountBalanceOutlinedIcon />}
-              selected={selected}
-              setSelected={setSelected}
-            />
+            <AccountsMenu />
             <Item
               title="Portfolio"
               to="/portfolio"

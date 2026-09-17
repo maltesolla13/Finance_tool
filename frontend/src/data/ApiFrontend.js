@@ -12,8 +12,10 @@ export class ApiRequests {
   }
 
   // users
-  createUser(data) {
-    return this.api.post("/users", data);
+  async createUser(data) {
+    const result = await this.api.post("/users", data);
+    window.dispatchEvent(new Event("accounts-changed"));
+    return result;
   }
   listUsers() {
     return this.api.get("/users");
@@ -29,14 +31,22 @@ export class ApiRequests {
   listKonten() {
     return this.api.get("/konten");
   }
-  createKonto(data) {
-    return this.api.post("/konten", data);
+  async createKonto(data) {
+    const result = await this.api.post("/konten", data);
+    window.dispatchEvent(new Event("accounts-changed"));
+    return result;
   }
-  updateKonto(id, data) {
-    return this.api.put(`/konten/${id}`, data);
+  async updateKonto(id, data) {
+    const result = await this.api.put(`/konten/${id}`, data);
+    window.dispatchEvent(new Event("accounts-changed"));
+    return result;
   }
   deleteKonto(id) {
     return this.api.delete(`/konten/${id}`);
+  }
+
+  accountSummary(id) {
+    return this.api.get(`/accounts/${id}/summary`);
   }
 
   // kategorie

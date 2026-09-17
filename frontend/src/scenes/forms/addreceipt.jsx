@@ -1,3 +1,4 @@
+import AccountUserField from "./Services/AccountUserField";
 import {
   useEffect,
   useMemo,
@@ -32,7 +33,6 @@ import * as Validators from "./Services/validators";
 import * as Payloads from "./Services/payloads";
 import * as DateUtils from "./Services/date.utils";
 import {
-  UserAutocomplete,
   KontoAutocomplete,
   KategorieAutocomplete,
   LadenAutocomplete,
@@ -62,7 +62,7 @@ export default function AddReceipt() {
   const [optCats, setOptCats] = useState([]);
   const [optLaden, setOptLaden] = useState([]);
 
-  const [inputUser, setInputUser] = useState("");
+  const inputUser = "";
   const [inputKonto, setInputKonto] = useState("");
   const [inputCat, setInputCat] = useState("");
   const [inputLaden, setInputLaden] = useState("");
@@ -242,14 +242,6 @@ export default function AddReceipt() {
 
             <Box component="form" onSubmit={onCreate}>
               <Stack spacing={2}>
-                <UserAutocomplete
-                  options={optUsers}
-                  valueId={userId}
-                  inputValue={inputUser}
-                  onInputChange={setInputUser}
-                  onSelectId={setUserId}
-                />
-
                 <TextField
                   label="Bezeichnung"
                   value={name}
@@ -285,6 +277,14 @@ export default function AddReceipt() {
                   inputValue={inputKonto}
                   onInputChange={setInputKonto}
                   onSelectId={setKontoId}
+                />
+                <AccountUserField
+                  accounts={optKonten}
+                  users={optUsers}
+                  accountIds={[kontoId]}
+                  valueId={userId}
+                  onSelectId={setUserId}
+                  loading={loadingOpts}
                 />
 
                 <LadenAutocomplete

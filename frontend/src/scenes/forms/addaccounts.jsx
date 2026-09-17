@@ -1,186 +1,225 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  TextField,
-  Button,
-  Stack,
   Alert,
+  Autocomplete,
+  Box,
+  Button,
   LinearProgress,
-  Typography,
   Grid,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  useTheme,
+  Stack,
+  TextField,
+  Typography,
 } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 import { ApiClient } from "../../data/ApiClient";
 import { ApiRequests } from "../../data/ApiFrontend";
-import { ApiError } from "../../data/ApiErrors";
-import { tokens } from "../../theme";
 import Header from "../../components/Header";
 
-const AddAccount = () => {
+export default function AddAccount() {
   const api = useMemo(() => new ApiRequests(new ApiClient()), []);
-
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const [searchParams] = useSearchParams();
+  const [accounts, setAccounts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [userIds, setUserIds] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [konten, setKonten] = useState([]);
-  const loadKonten = useCallback(async () => {
+
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await api.listKonten();
-      setKonten(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.warn("listKonten failed", e);
-      setKonten([]);
+      const [nextAccounts, nextUsers] = await Promise.all([
+        api.listKonten(),
+        api.listUsers(),
+      ]);
+      setAccounts(nextAccounts);
+      setUsers(nextUsers);
+    } catch (err) {
+      setError(err.message || "Konten konnten nicht geladen werden.");
+    } finally {
+      setLoading(false);
     }
   }, [api]);
 
   useEffect(() => {
-    loadKonten();
-  }, [loadKonten]);
-  async function handleSubmit(e) {
-    e.preventDefault();
+    load();
+  }, [load]);
+
+  const startEdit = useCallback((account) => {
+    setEditId(account.id);
+    setName(account.name);
+    setUserIds(account.user_ids ?? []);
     setError("");
     setSuccess("");
+  }, []);
 
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError("Name Eingeben");
+  useEffect(() => {
+    const account = accounts.find(
+      (item) => item.id === Number(searchParams.get("konto")),
+    );
+    if (account) startEdit(account);
+  }, [accounts, searchParams, startEdit]);
+
+  const reset = () => {
+    setEditId(null);
+    setName("");
+    setUserIds([]);
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    if (!name.trim() || !userIds.length) {
+      setError("Bitte Kontonamen und mindestens einen User angeben.");
       return;
     }
-
-    setLoading(true);
+    setSaving(true);
     try {
-      await api.createKonto({ name: trimmed });
-      setSuccess(`Konto "${trimmed}" wurde angelegt.`);
-      setName("");
-      await loadKonten();
-    } catch (e) {
-      if (e instanceof ApiError) {
-        if (e.status === 409) setError("Name existiert ebreits");
-        else setError(e.message || "Fehler beim Anlegen");
-      } else {
-        setError("Unbekannter Fehler.");
-      }
+      const payload = { name: name.trim(), user_ids: userIds };
+      if (editId != null) await api.updateKonto(editId, payload);
+      else await api.createKonto(payload);
+      reset();
+      await load();
+      setSuccess("Konto und User-Zuordnung gespeichert.");
+    } catch (err) {
+      setError(err.message || "Speichern fehlgeschlagen.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }
+  };
 
+  const usersById = Object.fromEntries(
+    users.map((user) => [user.id, user.name]),
+  );
   return (
-    <Box m="20px" component="section" sx={{ p: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Header title="New Account" subtitle="Add a newe Account" />
-      </Box>
-
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, color: colors.redAccent[500] }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert
-          severity="success"
-          sx={{ mb: 2, color: colors.greenAccent[500] }}
-        >
-          {success}
-        </Alert>
-      )}
-
-      {/* Zweispaltiges Layout */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Paper
-            sx={{
-              p: 3,
-              borderRadius: 3,
-              bgcolor: colors?.primary?.[400] ?? "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Konto hinzufügen
-            </Typography>
-            <Box component="form" onSubmit={handleSubmit}>
-              <Stack direction="row" spacing={2}>
+    <Box m="20px">
+      <Header
+        title="Add new Account"
+        subtitle="Konten anlegen, bearbeiten und User zuordnen"
+      />
+      {(loading || saving) && <LinearProgress />}
+      <Stack spacing={2}>
+        {error && <Alert severity="error">{error}</Alert>}
+        {success && <Alert severity="success">{success}</Alert>}
+        {!loading && !users.length && (
+          <Alert severity="info">
+            Bitte zuerst unter Forms einen User anlegen.
+          </Alert>
+        )}
+        <Grid container spacing={3} alignItems="flex-start">
+          <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
+            <Paper
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Stack spacing={2} component="form" onSubmit={save}>
+                <Typography variant="h6">
+                  {editId == null ? "Konto anlegen" : "Konto bearbeiten"}
+                </Typography>
                 <TextField
-                  label="Name"
+                  label="Kontoname"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  fullWidth
-                  sx={{
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: colors?.grey?.[400],
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#868dfb",
-                    },
-                    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
-                      { borderColor: colors?.greenAccent?.[400] },
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: colors?.greenAccent?.[400],
-                    },
-                  }}
+                  required
+                  disabled={saving}
+                  onChange={(event) => setName(event.target.value)}
                 />
-                <Button type="submit" variant="contained">
-                  Anlegen
-                </Button>
-              </Stack>
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper
-            sx={{
-              p: 3,
-              borderRadius: 3,
-              bgcolor: colors?.primary?.[400] ?? "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Vorhandene Konten
-            </Typography>
-            {konten.length === 0 ? (
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Noch kein Konto angelegt
-              </Typography>
-            ) : (
-              <List dense>
-                {konten.map((u) => (
-                  <ListItem
-                    key={u.id}
-                    sx={{
-                      borderRadius: 2,
-                      "&:hover": { backgroundColor: "action.hover" },
-                    }}
-                  >
-                    <ListItemText
-                      primary={u.name}
-                      secondary={`ID: ${u.id}`}
-                      primaryTypographyProps={{ color: "text.primary" }}
-                      secondaryTypographyProps={{ color: "text.secondary" }}
+                <Autocomplete
+                  multiple
+                  options={users}
+                  value={users.filter((user) => userIds.includes(user.id))}
+                  onChange={(_, selected) =>
+                    setUserIds(selected.map((user) => user.id))
+                  }
+                  getOptionLabel={(user) => user.name}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  disabled={saving || loading}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Zugeordnete User"
+                      required={userIds.length === 0}
+                      helperText="Mindestens ein User; mehrere User sind moeglich."
                     />
-                  </ListItem>
+                  )}
+                />
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={saving || loading || !users.length}
+                  >
+                    {editId == null ? "Anlegen" : "Speichern"}
+                  </Button>
+                  {editId != null && (
+                    <Button onClick={reset} disabled={saving}>
+                      Abbrechen
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 7 }} sx={{ minWidth: 0 }}>
+            <Paper
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Vorhandene Konten
+              </Typography>
+              {!loading && !accounts.length && (
+                <Typography>Noch kein Konto angelegt.</Typography>
+              )}
+              <Stack spacing={2}>
+                {accounts.map((account) => (
+                  <Stack
+                    key={account.id}
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={2}
+                  >
+                    <Box>
+                      <Typography>{account.name}</Typography>
+                      <Typography
+                        variant="body2"
+                        color={
+                          account.user_ids?.length ? "text.secondary" : "error"
+                        }
+                      >
+                        {account.user_ids?.length
+                          ? account.user_ids
+                              .map((id) => usersById[id] ?? id)
+                              .join(", ")
+                          : "Bitte mindestens einen User zuordnen"}
+                      </Typography>
+                    </Box>
+                    <Button
+                      onClick={() => startEdit(account)}
+                      disabled={saving}
+                    >
+                      Bearbeiten
+                    </Button>
+                  </Stack>
                 ))}
-              </List>
-            )}
-          </Paper>
+              </Stack>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Stack>
     </Box>
   );
-};
-
-export default AddAccount;
+}

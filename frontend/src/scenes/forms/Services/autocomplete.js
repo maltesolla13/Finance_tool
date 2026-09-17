@@ -139,6 +139,7 @@ export function UserAutocomplete(props) {
   // Label lässt sich überschreiben: label="User"
   return (
     <BaseAutocomplete
+      filterOptions={baseFilter}
       label={props.label ?? "User"}
       required={props.required ?? true}
       {...props}
@@ -149,6 +150,7 @@ export function UserAutocomplete(props) {
 export function KontoAutocomplete(props) {
   return (
     <BaseAutocomplete
+      filterOptions={baseFilter}
       label={props.label ?? "Konto"}
       required={props.required ?? true}
       {...props}
