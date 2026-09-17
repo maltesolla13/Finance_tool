@@ -27,31 +27,50 @@ export default function Accounts() {
   const api = useMemo(() => new ApiRequests(new ApiClient()), []);
   const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
   const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const requestedId = searchParams.get("konto");
-  const accountId = requestedId ? Number(requestedId) : accounts[0]?.id;
+  const requestedUser = searchParams.get("user");
+  const selectedUser = requestedUser
+    ? users.find((user) => user.id === Number(requestedUser))
+    : users[0];
+  const userId = selectedUser?.id;
+  const userAccounts = useMemo(
+    () => accounts.filter((account) => account.user_ids?.includes(userId)),
+    [accounts, userId],
+  );
+  const accountId =
+    userAccounts.find((account) => account.id === Number(requestedId))?.id ??
+    userAccounts[0]?.id;
+  const visibleSummary = summary?.account.id === accountId ? summary : null;
 
   useEffect(() => {
     let active = true;
-    api
-      .listKonten()
-      .then((data) => {
+    setLoadingOptions(true);
+    setError("");
+    Promise.all([api.listKonten(), api.listUsers()])
+      .then(([nextAccounts, nextUsers]) => {
         if (active) {
-          setAccounts(data);
-          if (!data.length) setLoading(false);
+          setAccounts(nextAccounts);
+          setUsers(
+            [...nextUsers].sort((a, b) => a.name.localeCompare(b.name, "de")),
+          );
         }
       })
       .catch((err) => {
         if (active) {
           setError(err.message);
-          setLoading(false);
         }
+      })
+      .finally(() => {
+        if (active) setLoadingOptions(false);
       });
     return () => {
       active = false;
@@ -59,7 +78,12 @@ export default function Accounts() {
   }, [api, revision]);
 
   useEffect(() => {
-    if (!accountId) return;
+    if (loadingOptions) return;
+    if (!accountId) {
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
     setError("");
@@ -80,7 +104,27 @@ export default function Accounts() {
     return () => {
       active = false;
     };
-  }, [api, accountId, revision]);
+  }, [api, accountId, userId, loadingOptions]);
+
+  useEffect(() => {
+    if (loadingOptions || !userId) return;
+    if (
+      requestedUser !== String(userId) ||
+      requestedId !== (accountId ? String(accountId) : null)
+    ) {
+      setSearchParams(
+        { user: userId, ...(accountId ? { konto: accountId } : {}) },
+        { replace: true },
+      );
+    }
+  }, [
+    loadingOptions,
+    userId,
+    accountId,
+    requestedUser,
+    requestedId,
+    setSearchParams,
+  ]);
 
   const rows = useMemo(
     () =>
@@ -105,18 +149,23 @@ export default function Accounts() {
   return (
     <Box m="20px" sx={{ minWidth: 0 }}>
       <Header
-        title={summary?.account.name ?? "Accounts"}
-        subtitle="Guthabenentwicklung und Buchungen"
+        title={selectedUser?.name ?? "Accounts"}
+        subtitle={
+          visibleSummary
+            ? `${visibleSummary.account.name} – Guthabenentwicklung und Buchungen`
+            : "Guthabenentwicklung und Buchungen"
+        }
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
         <Autocomplete
-          options={accounts}
-          value={accounts.find((a) => a.id === accountId) ?? null}
+          options={userAccounts}
+          value={userAccounts.find((a) => a.id === accountId) ?? null}
           getOptionLabel={(account) => account.name}
           isOptionEqualToValue={(a, b) => a.id === b.id}
           onChange={(_, account) => {
-            if (account) setSearchParams({ konto: account.id });
+            if (account) setSearchParams({ user: userId, konto: account.id });
           }}
+          disabled={loadingOptions || !userAccounts.length}
           disableClearable
           sx={{ minWidth: 240, flex: 1 }}
           renderInput={(params) => <TextField {...params} label="Konto" />}
@@ -124,24 +173,29 @@ export default function Accounts() {
         <Button
           variant="outlined"
           onClick={() => setRevision((value) => value + 1)}
-          disabled={loading}
+          disabled={loading || loadingOptions}
         >
           Aktualisieren
         </Button>
       </Stack>
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {(loading || loadingOptions) && <LinearProgress sx={{ mb: 2 }} />}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-      {!loading && !accounts.length && !error && (
+      {!loadingOptions && !selectedUser && !error && (
         <Alert severity="info">
-          Noch keine Konten vorhanden.{" "}
-          <Link to="/forms/addaccount">Konto anlegen</Link>
+          {requestedUser ? "User nicht gefunden." : "Noch keine User angelegt."}
         </Alert>
       )}
-      {summary && (
+      {!loadingOptions && selectedUser && !userAccounts.length && !error && (
+        <Alert severity="info">
+          Diesem User sind noch keine Konten zugeordnet.{" "}
+          <Link to="/forms/addaccount">Konten verwalten</Link>
+        </Alert>
+      )}
+      {visibleSummary && (
         <Stack spacing={2}>
           <Box
             sx={{
