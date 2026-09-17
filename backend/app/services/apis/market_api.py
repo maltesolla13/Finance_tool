@@ -1,7 +1,8 @@
-import yfinance as yf
+from bisect import bisect_right
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+import yfinance as yf
 
 def _first_trading_day_ohlc(ticker: str, date: datetime, interval: str = "1d"):
     """
@@ -143,3 +144,55 @@ def fetch_high_on_or_before(
         ticker: str, date: datetime, in_eur: bool = True) -> Decimal:
     o = _last_trading_day_ohlc(ticker, date)
     return _to_eur(o["high"], ticker, o["date"]) if in_eur else o["high"]
+
+
+def fetch_daily_lows_eur(ticker, start_date, end_date):
+    """Load a whole price range in EUR, carrying preceding quotes over holidays.
+
+    Retains the application's daily-low convention. FX rates must also come
+    from the requested day or an earlier trading session.
+    """
+    def series(symbol, column):
+        history = yf.Ticker(symbol).history(
+            start=(start_date - timedelta(days=30)).isoformat(),
+            end=(end_date + timedelta(days=1)).isoformat(),
+            interval="1d",
+        )
+        values = {}
+        for stamp, row in history.iterrows():
+            value = Decimal(str(row[column]))
+            if value.is_finite() and value > 0:
+                values[stamp.date()] = value
+        if not values:
+            raise ValueError(f"Keine Kursdaten fuer {symbol}.")
+        days = sorted(values)
+
+        def at(day):
+            index = bisect_right(days, day) - 1
+            if index < 0:
+                raise ValueError(f"Kein Kurs fuer {symbol} am oder vor {day}.")
+            return values[days[index]]
+
+        return at
+
+    low = series(ticker, "Low")
+    currency, multiplier = resolve_currency(ticker)
+    def fx(day):
+        return Decimal(1)
+
+    if currency != "EUR":
+        try:
+            inverse = series(f"EUR{currency}=X", "Close")
+            inverse(start_date)
+            def fx(day):
+                return Decimal(1) / inverse(day)
+        except ValueError:
+            fx = series(f"{currency}EUR=X", "Close")
+    result = {}
+    day = start_date
+    while day <= end_date:
+        result[day] = (low(day) * multiplier * fx(day)).quantize(
+            Decimal("0.00001"), rounding=ROUND_HALF_UP
+        )
+        day += timedelta(days=1)
+    return result

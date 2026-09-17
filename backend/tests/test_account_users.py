@@ -3,9 +3,10 @@ import json
 import sqlite3
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
+from pydantic import BaseModel, Field
 from backend.app.services.account_users import (
     init_account_users, list_accounts, resolve_payload_user, save_account,
 )
@@ -122,6 +123,65 @@ class AccountUsersTest(unittest.TestCase):
             self.assertEqual(status, 200)
             status, _ = asyncio.run(request(app, "DELETE", "/users/1"))
             self.assertEqual(status, 409)
+
+
+class CrudPayload(BaseModel):
+    name: str
+    quantity: int = Field(gt=0)
+
+
+class CrudValidationTest(unittest.TestCase):
+    def setUp(self):
+        self.create = Mock()
+        self.update = Mock()
+        routes = BackendRoutes.__new__(BackendRoutes)
+        routes.router = APIRouter()
+        routes.wire_crud(
+            "widgets", CrudPayload, CrudPayload, lambda: [],
+            self.create, self.update, Mock(),
+        )
+        self.app = FastAPI()
+        self.app.include_router(routes.router)
+
+    def test_post_and_put_parse_json_as_the_concrete_schema(self):
+        payload = {"name": "Example", "quantity": 2}
+        status, _ = asyncio.run(request(
+            self.app, "POST", "/widgets", payload
+        ))
+        self.assertEqual(status, 201)
+        self.create.assert_called_once_with(CrudPayload(**payload))
+        status, _ = asyncio.run(request(
+            self.app, "PUT", "/widgets/7", payload
+        ))
+        self.assertEqual(status, 200)
+        self.update.assert_called_once_with(7, CrudPayload(**payload))
+
+    def test_invalid_payloads_are_rejected_before_callbacks(self):
+        for method, path in (("POST", "/widgets"), ("PUT", "/widgets/7")):
+            for payload in (
+                {"name": "Example", "quantity": 0},
+                {"name": "Example", "quantity": "invalid"},
+                {"quantity": 2},
+            ):
+                with self.subTest(method=method, payload=payload):
+                    status, _ = asyncio.run(request(
+                        self.app, method, path, payload
+                    ))
+                    self.assertEqual(status, 422)
+        self.create.assert_not_called()
+        self.update.assert_not_called()
+
+    def test_openapi_describes_a_typed_json_body(self):
+        paths = self.app.openapi()["paths"]
+        for path, method in (
+            ("/widgets", "post"), ("/widgets/{item_id}", "put")
+        ):
+            body = paths[path][method]["requestBody"]
+            self.assertTrue(body["required"])
+            self.assertEqual(
+                body["content"]["application/json"]["schema"]["$ref"],
+                "#/components/schemas/CrudPayload",
+            )
 
 
 if __name__ == "__main__":

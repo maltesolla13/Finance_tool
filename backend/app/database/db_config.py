@@ -324,6 +324,14 @@ def init_db():
     """)
 
     from backend.app.services.account_users import init_account_users
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS depot_sparplan_execution (
+            monthlycost_id INTEGER NOT NULL REFERENCES monthlycosts(id) ON DELETE CASCADE,
+            datum TEXT NOT NULL,
+            depotbewegung_id INTEGER NOT NULL UNIQUE REFERENCES depotbewegung(id) ON DELETE CASCADE,
+            PRIMARY KEY (monthlycost_id, datum)
+        )
+    """)
     init_account_users(conn)
     conn.commit()
     conn.close()

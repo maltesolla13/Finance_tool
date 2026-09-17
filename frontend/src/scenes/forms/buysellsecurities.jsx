@@ -393,7 +393,9 @@ const BuySellSecurities = () => {
     try {
       setSubmitting(true);
       await api.createDepotBewegung(payload); // feste ApiFrontend-Methoden verwenden
-      setOkMsg(`${typ} gespeichert.`);
+      setOkMsg(
+        `${typ} gespeichert. Die Depotbewertung wird im Hintergrund aktualisiert.`,
+      );
       // Reset nur Beträge/Anteile für schnellen Folge-Eintrag
       setBetrag("");
       setAnteile("");

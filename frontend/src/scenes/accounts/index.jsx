@@ -207,25 +207,40 @@ export default function Accounts() {
               },
             }}
           >
-            {[
-              ["Guthaben", summary.balance],
-              ["Eingänge", summary.income],
-              ["Ausgänge", summary.expenses],
-            ].map(([label, amount]) => (
+            {(summary.has_portfolio
+              ? [
+                  ["Einkauf", summary.purchase_value],
+                  [
+                    "Gewinn",
+                    summary.valuation_date ? summary.portfolio_profit : null,
+                  ],
+                  [
+                    "Gesamtvermögen",
+                    summary.valuation_date ? summary.total_value : null,
+                  ],
+                ]
+              : [
+                  ["Guthaben", summary.balance],
+                  ["Eing\u00e4nge", summary.income],
+                  ["Ausg\u00e4nge", summary.expenses],
+                ]
+            ).map(([label, amount]) => (
               <Paper key={label} sx={{ p: 3, borderRadius: 3 }}>
                 <Typography color="text.secondary">{label}</Typography>
                 <Typography
                   variant="h3"
                   color={amount < 0 ? "error.light" : "secondary.main"}
                 >
-                  {euro(amount)}
+                  {amount == null ? "Bewertung ausstehend" : euro(amount)}
                 </Typography>
               </Paper>
             ))}
           </Box>
           <Paper sx={{ p: 3, borderRadius: 3, minWidth: 0 }}>
             <Typography variant="h5" gutterBottom>
-              Guthabenentwicklung
+              {summary.has_portfolio
+                ? "Gesamtwertentwicklung"
+                : "Guthabenentwicklung"}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Stand: {dateDE(summary.as_of)}.{" "}
@@ -233,7 +248,25 @@ export default function Accounts() {
                 ? "Berechnet aus Buchungen und erfassten Kontoständen."
                 : "Aus den erfassten Buchungen berechnet; Startwert 0 €. Ein Anfangsguthaben ist nicht hinterlegt."}
             </Typography>
-            <BalanceChart data={summary.history} />
+            {summary.has_portfolio && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {summary.valuation_date
+                  ? "Guthaben plus gespeicherte Tageswerte der Wertpapiere. Depotbewertung vom " +
+                    dateDE(summary.valuation_date) +
+                    "."
+                  : "Die Depotbewertung wird im Backend berechnet. Bitte nach Abschluss aktualisieren."}
+              </Typography>
+            )}
+            <BalanceChart
+              data={
+                summary.has_portfolio ? summary.value_history : summary.history
+              }
+              label={
+                summary.has_portfolio
+                  ? "Gesamtwertentwicklung in Euro"
+                  : "Guthabenentwicklung in Euro"
+              }
+            />
           </Paper>
           <Paper sx={{ p: 3, borderRadius: 3, minWidth: 0 }}>
             <Stack

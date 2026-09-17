@@ -284,10 +284,8 @@ def _set_monthlycost_next_due(
 
 def run_monthlycosts_for_date(run_date: date):
     """
-    Bucht alle monthlycosts, deren next_due == run_date.
-    - Kein Wertpapier: + auf Eingang, - auf Ausgang; bei beiden -> 2 Buchungen.
-    - Mit Wertpapier:  nur - auf Ausgang (Cash-Abfluss).
-    Danach wird next_due um +1 Monat erhöht (ggf. mehrfach, falls überfällig).
+    Bucht fällige Daueraufträge ohne Wertpapier und setzt ihre nächste Fälligkeit.
+    Wertpapier-Sparpläne führt der separate Depotjob aus.
     """
     run_date = _to_date(run_date)
     db = DBHandler()
@@ -300,7 +298,8 @@ def run_monthlycosts_for_date(run_date: date):
              ausgangs_konto_id, eingangs_konto_id, start_datum,
              next_due, repeat_type, custom_interval, custom_unit, active) in rows:
 
-            if not active:
+            # Securities plans are executed by run_monthly_securities_jobs.
+            if not active or securities_id:
                 continue
             _backfill_monthlycost_executions_until(
                 db,
@@ -359,43 +358,29 @@ def run_monthlycosts_for_date(run_date: date):
             # Buchungsnamen mit Marker, damit idempotent
             base_label = f"AUTO: monthlycost#{mc_id} ({name})"
 
-            if securities_id:
-                # Nur Ausgangskonto, negativ
-                if ausgangs_konto_id:
-                    _insert_kontobewegung(
-                        db,
-                        user_id=user_id,
-                        name=f"{base_label} - Aktie (Ausgang)",
-                        betrag=Decimal(-abs(amount)),
-                        kategorie_id=kategorie_id,
-                        konto_id=ausgangs_konto_id,
-                        type_="MonthlyCosts",
-                        datum=run_date,
-                    )
-            else:
-                # Kein Wertpapier
-                if eingangs_konto_id:
-                    _insert_kontobewegung(
-                        db,
-                        user_id=user_id,
-                        name=f"{base_label} - Eingang",
-                        betrag=Decimal(abs(amount)),
-                        kategorie_id=kategorie_id,
-                        konto_id=eingangs_konto_id,
-                        type_="MonthlyCosts",
-                        datum=run_date,
-                    )
-                if ausgangs_konto_id:
-                    _insert_kontobewegung(
-                        db,
-                        user_id=user_id,
-                        name=f"{base_label} - Ausgang",
-                        betrag=Decimal(-abs(amount)),
-                        kategorie_id=kategorie_id,
-                        konto_id=ausgangs_konto_id,
-                        type_="MonthlyCosts",
-                        datum=run_date,
-                    )
+            # Kein Wertpapier
+            if eingangs_konto_id:
+                _insert_kontobewegung(
+                    db,
+                    user_id=user_id,
+                    name=f"{base_label} - Eingang",
+                    betrag=Decimal(abs(amount)),
+                    kategorie_id=kategorie_id,
+                    konto_id=eingangs_konto_id,
+                    type_="MonthlyCosts",
+                    datum=run_date,
+                )
+            if ausgangs_konto_id:
+                _insert_kontobewegung(
+                    db,
+                    user_id=user_id,
+                    name=f"{base_label} - Ausgang",
+                    betrag=Decimal(-abs(amount)),
+                    kategorie_id=kategorie_id,
+                    konto_id=ausgangs_konto_id,
+                    type_="MonthlyCosts",
+                    datum=run_date,
+                )
 
             _insert_monthlycost_execution(
                 db,
@@ -476,7 +461,7 @@ def mirror_depotbewegung_to_kontobewegung(only_for_date: date | None = None):
             label = f"AUTO: depot#{dep_id} {type_.lower()}"
             amount = Decimal(str(betrag))
 
-            if type_.lower() == "kauf":
+            if type_.lower() in {"kauf", "sparplan"}:
                 cash_konto_id = (
                     ausgangs_konto_id
                     or _map_depotkonto_to_cash_konto_id(db, depot_konto_id)

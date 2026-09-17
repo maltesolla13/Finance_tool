@@ -96,6 +96,8 @@ class SchemaDepotbewegung:
 
 @dataclass
 class SchemaDepotstand:
+    """Daily totals per user/account/security; value and net investment are in EUR."""
+
     user_id: Optional[int] = None
     konto_id: Optional[int] = None
     securities_id: Optional[int] = None

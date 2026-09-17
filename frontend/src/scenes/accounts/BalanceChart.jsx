@@ -9,7 +9,10 @@ export const euro = (value) =>
 export const dateDE = (value) =>
   value ? value.slice(0, 10).split("-").reverse().join(".") : "";
 
-export default function BalanceChart({ data }) {
+export default function BalanceChart({
+  data,
+  label = "Guthabenentwicklung in Euro",
+}) {
   const colors = tokens(useTheme().palette.mode);
   if (!data.length)
     return <Typography>Keine Guthabenentwicklung vorhanden.</Typography>;
@@ -44,7 +47,7 @@ export default function BalanceChart({ data }) {
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Guthabenentwicklung in Euro"
+        aria-label={label}
         style={{ width: "100%", minWidth: 420 }}
       >
         {[0, 0.25, 0.5, 0.75, 1].map((part) => {

@@ -1,11 +1,15 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import List, Callable, Any
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
-from backend.app.services.depot.daily_jobs import ensure_depotstand_from_last
-from backend.app.services.depot.monthly_jobs import run_monthly_securities_jobs
+from backend.app.services.depot.daily_jobs import (
+    ensure_depotstand_from_last, refresh_depotstand,
+)
+from backend.app.services.depot.monthly_jobs import (
+    refresh_monthly_securities, run_monthly_securities_jobs,
+)
 from backend.app.services.jobs.monthly_and_depot_posting import (
     _backfill_monthlycost_executions_until,
     _first_due_after,
@@ -17,7 +21,9 @@ from backend.app.services.jobs.monthly_and_depot_posting import (
 from backend.app.services.jobs.savings_execution import (
     recalc_all_savings, recalc_savings)
 from backend.app.database.db_handling import DBHandler
-from backend.app.services.account_users import list_accounts, save_account, resolve_payload_user
+from backend.app.services.account_users import (
+    list_accounts, save_account, resolve_payload_user,
+)
 from backend.app.services.account_overview import account_overview
 from backend.app.services.apis.market_api import (
     fetch_high_on_or_after, fetch_low_on_or_after, fetch_low_on_or_before
@@ -72,8 +78,8 @@ class BackendRoutes:
     def wire_crud(
             self,
             name: str,
-            dto_in: Any,
-            dto_out: Any,
+            dto_in: type[Any],
+            dto_out: type[Any],
             list_fn: Callable[[], List[Any]],
             create_fn: Callable[[Any], None],
             update_fn: Callable[[int, Any], None],
@@ -88,8 +94,7 @@ class BackendRoutes:
             return list_fn()
 
         # POST /{name}
-        @r.post("", status_code=201)
-        def create_item(payload: dto_in):
+        def create_item(payload: Any, background_tasks: BackgroundTasks):
             if name in {"receipt", "savings", "kontobewegung", "depotbewegung",
                         "depotstand", "monthlycosts", "monthlycosts_execution",
                         "savings_execution"}:
@@ -99,28 +104,53 @@ class BackendRoutes:
                 finally:
                     db.close()
             create_fn(payload)
+            if name == "monthlycosts":
+                background_tasks.add_task(
+                    refresh_monthly_securities, datetime.now(TZ)
+                )
+            if name == "depotbewegung":
+                background_tasks.add_task(refresh_depotstand, datetime.now(TZ))
+                return {"ok": True, "valuation_pending": True}
             return {"ok": True}
+        # Set the concrete schema before FastAPI inspects the endpoint.
         create_item.__annotations__["payload"] = dto_in
+        r.add_api_route(
+            "", create_item, methods=["POST"], status_code=201
+        )
 
         # PUT /{name}/{item_id}
-        @r.put("/{item_id}")
-        def update_item(item_id: int, payload: dto_in):
+        def update_item(
+                item_id: int, payload: Any,
+                background_tasks: BackgroundTasks):
             if name in {"receipt", "savings", "kontobewegung", "depotbewegung",
                         "depotstand", "monthlycosts", "monthlycosts_execution",
                         "savings_execution"}:
                 db = DBHandler()
                 try:
-                    payload = resolve_payload_user(db.conn, name, payload, item_id)
+                    payload = resolve_payload_user(
+                        db.conn, name, payload, item_id
+                    )
                 finally:
                     db.close()
             update_fn(item_id, payload)
+            if name == "monthlycosts":
+                background_tasks.add_task(
+                    refresh_monthly_securities, datetime.now(TZ)
+                )
+            if name == "depotbewegung":
+                background_tasks.add_task(refresh_depotstand, datetime.now(TZ))
+                return {"ok": True, "valuation_pending": True}
             return {"ok": True}
         update_item.__annotations__["payload"] = dto_in
+        r.add_api_route("/{item_id}", update_item, methods=["PUT"])
 
         # DELETE /{name}/{item_id}
         @r.delete("/{item_id}")
-        def delete_item(item_id: int):
+        def delete_item(item_id: int, background_tasks: BackgroundTasks):
             delete_fn(item_id)
+            if name == "depotbewegung":
+                background_tasks.add_task(refresh_depotstand, datetime.now(TZ))
+                return {"ok": True, "valuation_pending": True}
             return {"ok": True}
 
         self.router.include_router(r)
@@ -202,11 +232,13 @@ class BackendRoutes:
         next_due_date = _to_date(out.get("next_due")) if out.get(
             "next_due") else None
         if start_date and (not next_due_date or next_due_date <= start_date):
-            out["next_due"] = _next_due_date(
-                start_date,
-                out.get("repeat_type"),
-                out.get("custom_interval"),
-                out.get("custom_unit"),
+            out["next_due"] = (
+                start_date if out.get("securities_id") else _next_due_date(
+                    start_date,
+                    out.get("repeat_type"),
+                    out.get("custom_interval"),
+                    out.get("custom_unit"),
+                )
             )
         return out
 
@@ -270,37 +302,15 @@ class BackendRoutes:
         ).fetchone()
         return bool(row and (row["name"] or "").strip().lower() == "gehalt")
 
-    def _invalidate_depotstand_from(
-            self,
-            db: DBHandler,
-            *,
-            user_id: int | None,
-            konto_id: int | None,
-            securities_id: int | None,
-            datum) -> None:
-        if not konto_id or not securities_id or not datum:
-            return
-        db.cursor.execute("""
-            DELETE FROM depotstand
-            WHERE konto_id = ?
-              AND securities_id = ?
-              AND (? IS NULL OR user_id = ?)
-              AND DATE(datum) >= DATE(?)
-        """, (
-            konto_id,
-            securities_id,
-            user_id,
-            user_id,
-            self._dt(datum),
-        ))
-
     # ---- Request/Route-Definitionen -----------------------------------------
     def request_handling(self) -> None:
         @self.router.get("/accounts/{account_id}/summary", tags=["Konten"])
         def get_account_summary(account_id: int):
             db = DBHandler()
             try:
-                return account_overview(db.conn, account_id, datetime.now(TZ).date())
+                return account_overview(
+                    db.conn, account_id, datetime.now(TZ).date()
+                )
             finally:
                 db.close()
 
@@ -487,8 +497,10 @@ class BackendRoutes:
                     FROM depotbewegung db
                     JOIN securities s ON s.id = db.securities_id
                     WHERE db.konto_id IN ({account_sql})
+                       OR db.ausgangs_konto_id IN ({account_sql})
+                       OR db.eingangs_konto_id IN ({account_sql})
                     ORDER BY DATE(db.datum), db.id
-                """, account_params).fetchall()
+                """, account_params * 3).fetchall()
 
                 price_cache = {}
 
@@ -519,7 +531,8 @@ class BackendRoutes:
                     }
                     if sec_id not in state:
                         state[sec_id] = {"shares": 0.0, "invested": 0.0}
-                    sign = -1 if (r["type"] or "").lower() == "verkauf" else 1
+                    type_name = (r["type"] or "").strip().lower()
+                    sign = -1 if type_name == "verkauf" else 1
                     state[sec_id]["shares"] += sign * float(r["anteile"] or 0)
                     state[sec_id]["invested"] += sign * float(r["betrag"] or 0)
                     if r["d"] not in dates:
@@ -547,11 +560,8 @@ class BackendRoutes:
                     for d in dates:
                         for r in moves_by_date.get(d, []):
                             sec_id = r["securities_id"]
-                            sign = (
-                                -1
-                                if (r["type"] or "").lower() == "verkauf"
-                                else 1
-                            )
+                            type_name = (r["type"] or "").strip().lower()
+                            sign = -1 if type_name == "verkauf" else 1
                             running[sec_id]["shares"] += sign * float(
                                 r["anteile"] or 0)
                             running[sec_id]["invested"] += sign * float(
@@ -695,7 +705,10 @@ class BackendRoutes:
         def get_konto() -> List[SchemaKonto]:
             db = DBHandler()
             try:
-                return [SchemaKonto(**account) for account in list_accounts(db.conn)]
+                return [
+                    SchemaKonto(**account)
+                    for account in list_accounts(db.conn)
+                ]
             finally:
                 db.close()
 
@@ -765,9 +778,13 @@ class BackendRoutes:
             db = DBHandler()
             try:
                 if db.cursor.execute(
-                    "SELECT 1 FROM konto_user WHERE user_id=? LIMIT 1", (user_id,)
+                    "SELECT 1 FROM konto_user WHERE user_id=? LIMIT 1",
+                    (user_id,)
                 ).fetchone():
-                    raise HTTPException(409, "Bitte zuerst die Konten dieses Users neu zuordnen.")
+                    raise HTTPException(
+                        409,
+                        "Bitte zuerst die Konten dieses Users neu zuordnen."
+                    )
                 db.cursor.execute("DELETE FROM user WHERE id=?", (user_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
@@ -924,7 +941,11 @@ class BackendRoutes:
                 )
                 start_date = _to_date(p.start_datum)
                 next_due_date = _to_date(p.next_due) if p.next_due else None
-                if not next_due_date or next_due_date <= start_date:
+                if p.securities_id:
+                    # New plans have no executions yet, including their
+                    # start date.
+                    p.next_due = start_date
+                elif not next_due_date or next_due_date <= start_date:
                     p.next_due = _next_due_date(
                         start_date, p.repeat_type, p.custom_interval,
                         p.custom_unit
@@ -963,7 +984,7 @@ class BackendRoutes:
                 db.insert_monthlycosts(p)
                 new_id = db.cursor.lastrowid
                 run_date = datetime.now(TZ).date()
-                if p.active:
+                if p.active and not p.securities_id:
                     _backfill_monthlycost_executions_until(
                         db,
                         monthlycost_id=new_id,
@@ -1504,17 +1525,9 @@ class BackendRoutes:
             try:
                 data = self._normalize_depotbewegung(payload.__dict__)
                 db.insert_depotbewegung(SimpleNamespace(**data))
-                self._invalidate_depotstand_from(
-                    db,
-                    user_id=data.get("user_id"),
-                    konto_id=data.get("konto_id"),
-                    securities_id=data.get("securities_id"),
-                    datum=data.get("datum"),
-                )
                 db.conn.commit()
             finally:
                 db.close()
-            ensure_depotstand_from_last(datetime.now(TZ))
 
         def update_depotbewegung(
                 depotbewegung_id: int,
@@ -1536,44 +1549,22 @@ class BackendRoutes:
                     normalizer=self._normalize_depotbewegung,
                 )
                 db.update_depotbewegung(ns)
-                self._invalidate_depotstand_from(
-                    db,
-                    user_id=ns.user_id,
-                    konto_id=ns.konto_id,
-                    securities_id=ns.securities_id,
-                    datum=ns.datum,
-                )
                 db.conn.commit()
             finally:
                 db.close()
-            ensure_depotstand_from_last(datetime.now(TZ))
 
         def delete_depotbewegung(depotbewegung_id: int) -> None:
             db = DBHandler()
             try:
-                old = db.cursor.execute("""
-                    SELECT user_id, konto_id, securities_id, datum
-                    FROM depotbewegung
-                    WHERE id = ?
-                """, (depotbewegung_id,)).fetchone()
                 db.cursor.execute(
                     "DELETE FROM depotbewegung WHERE id = ?",
                     (depotbewegung_id,))
                 if db.cursor.rowcount == 0:
                     raise HTTPException(
                         status_code=404, detail="Depotbewegung nicht gefunden")
-                if old:
-                    self._invalidate_depotstand_from(
-                        db,
-                        user_id=old["user_id"],
-                        konto_id=old["konto_id"],
-                        securities_id=old["securities_id"],
-                        datum=old["datum"],
-                    )
                 db.conn.commit()
             finally:
                 db.close()
-            ensure_depotstand_from_last(datetime.now(TZ))
 
         # ---- Depot Stand ----
         def get_depotstand() -> List[SchemaDepotstand]:

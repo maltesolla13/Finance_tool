@@ -6,6 +6,42 @@ import { ApiRequests } from "../../data/ApiFrontend";
 
 jest.mock("../../data/ApiFrontend");
 
+test("portfolio accounts render the persisted total value history", async () => {
+  ApiRequests.prototype.accountSummary.mockResolvedValue({
+    account: { id: 1, name: "Depot" },
+    balance: 50,
+    income: 50,
+    expenses: 0,
+    as_of: "2026-09-17",
+    has_portfolio: true,
+    portfolio_value: 300,
+    purchase_value: 280,
+    portfolio_profit: 20,
+    total_value: 350,
+    valuation_date: "2026-09-17",
+    transactions: [],
+    history: [{ date: "2026-09-17", balance: 50 }],
+    value_history: [{ date: "2026-09-17", balance: 350 }],
+  });
+  render(
+    <MemoryRouter initialEntries={["/accounts?user=1&konto=1"]}>
+      <Accounts />
+    </MemoryRouter>,
+  );
+  expect(
+    await screen.findByRole("img", { name: "Gesamtwertentwicklung in Euro" }),
+  ).toBeTruthy();
+  expect(screen.getByText("Einkauf")).toBeTruthy();
+  expect(screen.getByText("Gewinn")).toBeTruthy();
+  expect(screen.getByText("Gesamtvermögen")).toBeTruthy();
+  expect(screen.queryByText("Guthaben")).toBeNull();
+  expect(screen.queryByText("Eingänge")).toBeNull();
+  expect(screen.queryByText("Ausgänge")).toBeNull();
+  expect(screen.getByRole("heading", { name: /280,00/ })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /20,00/ })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /350,00/ })).toBeTruthy();
+});
+
 function UserNavigation() {
   const location = useLocation();
   return (
